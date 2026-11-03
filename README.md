@@ -6,16 +6,16 @@ This repo is a scaffold only — dependencies, config, and folders are ready; no
 
 ## Stack
 
-| Layer               | Choice                                                                                       |
-| ------------------- | -------------------------------------------------------------------------------------------- |
-| App                 | React 19 + TypeScript + Vite 8                                                               |
-| Styling             | Tailwind CSS v4                                                                              |
-| Wallet connection   | [WizardConnect](https://www.npmjs.com/package/@wizardconnect/react) (`@wizardconnect/react`) |
-| BCH smart contracts | [XO Stack](https://stack.xo.cash) (`@xo-cash/engine`)                                        |
-| Covenant language   | [CashScript](https://cashscript.org) + `cashc` compiler                                      |
-| BCH primitives      | `@bitauth/libauth`                                                                           |
-| Tests               | Vitest + Testing Library + jsdom                                                             |
-| Lint / format       | oxlint + Prettier                                                                            |
+| Layer               | Choice                                                                                                      |
+| ------------------- | ----------------------------------------------------------------------------------------------------------- |
+| App                 | React 19 + TypeScript + Vite 8                                                                              |
+| Styling             | Tailwind CSS v4                                                                                             |
+| Wallet connection   | [WizardConnect](https://www.npmjs.com/package/@wizardconnect/react) (`@wizardconnect/react`)                |
+| BCH smart contracts | [XO Stack](https://stack.xo.cash): `engine`, `templates`, `types`, `primitives`, `crypto`, `state`, `utils` |
+| Covenant language   | [CashScript](https://cashscript.org) + `cashc` compiler                                                     |
+| BCH primitives      | `@bitauth/libauth`                                                                                          |
+| Tests               | Vitest + Testing Library + jsdom                                                                            |
+| Lint / format       | oxlint + Prettier                                                                                           |
 
 ## Requirements
 
@@ -109,5 +109,6 @@ https://docs.google.com/presentation/d/1Yfuk9CJkf4U9M_WukcELhumWgj3Ak6345Ewy8hSp
 ## Notes
 
 - `@xo-cash/engine` is pinned to the `next` release (`0.1.0-next.*`) because the stack is in active development. Upgrade with `pnpm add @xo-cash/engine@next`.
-- pnpm may warn about ignored build scripts for `better-sqlite3`, `sqlite3`, and `canvas` (transitive dependencies of the XO/storage stack). They are not needed for browser builds; approve them only if you start using the Node-side storage adapters.
+- The other `@xo-cash/*` packages are pinned to the exact versions the engine expects. Upgrade them together with the engine to avoid duplicate/mismatched copies.
+- pnpm may warn about ignored build scripts for `better-sqlite3`, `sqlite3`, and `canvas` (transitive dependencies of the XO/storage stack). They are not needed for browser builds; approve them only if you start using the Node-side storage adapters (`pnpm approve-builds`).
 - `.env.local` is gitignored; only `.env.example` is committed.

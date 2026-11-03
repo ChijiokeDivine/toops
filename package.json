@@ -17,16 +17,22 @@
     "contracts:compile": "cashc ./contracts/main.cash -o ./src/contracts/main.json"
   },
   "dependencies": {
+    "@bitauth/libauth": "3.1.0-next.8",
     "@wizardconnect/core": "^0.2.5",
     "@wizardconnect/dapp": "^0.2.2",
     "@wizardconnect/react": "^0.2.3",
+    "@xo-cash/crypto": "0.0.5",
     "@xo-cash/engine": "0.1.0-next.17612568780",
+    "@xo-cash/primitives": "0.0.3",
+    "@xo-cash/state": "0.0.5",
+    "@xo-cash/templates": "0.0.12",
+    "@xo-cash/types": "0.0.8",
+    "@xo-cash/utils": "0.0.10",
     "cashscript": "^0.14.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },
   "devDependencies": {
-    "@bitauth/libauth": "3.1.0-next.8",
     "@tailwindcss/vite": "^4.3.4",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
