@@ -16,13 +16,20 @@
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage --passWithNoTests",
-    "contracts:compile": "cashc ./contracts/main.cash -o ./src/contracts/main.json"
+    "contracts:compile": "cashc ./contracts/main.cash -o ./src/contracts/main.json",
+    "postinstall": "prisma generate",
+    "db:generate": "prisma generate",
+    "db:migrate": "dotenv -e .env.local -- prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:deploy:local": "dotenv -e .env.local -- prisma migrate deploy",
+    "db:studio": "dotenv -e .env.local -- prisma studio"
   },
   "engines": {
     "node": ">=20.9.0"
   },
   "dependencies": {
     "@bitauth/libauth": "3.1.0-next.8",
+    "@prisma/client": "6.19.3",
     "@tailwindcss/postcss": "4.3.4",
     "@wizardconnect/core": "^0.2.5",
     "@wizardconnect/dapp": "^0.2.2",
@@ -34,11 +41,13 @@
     "@xo-cash/templates": "0.0.12",
     "@xo-cash/types": "0.0.8",
     "@xo-cash/utils": "0.0.10",
+    "bch-connect": "^0.2.0",
     "cashscript": "^0.14.0",
     "next": "16.4.5",
     "postcss": "^8.5.32",
     "react": "^19.3.1",
-    "react-dom": "^19.3.1"
+    "react-dom": "^19.3.1",
+    "server-only": "^0.0.1"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^7.0.1",
@@ -48,6 +57,7 @@
     "@types/react-dom": "^19.3.0",
     "@vitest/coverage-v8": "^5.1.0",
     "cashc": "^0.14.0",
+    "dotenv-cli": "^11.1.0",
     "happy-dom": "^21.0.4",
     "oxlint": "^1.89.0",
     "prettier": "^3.9.10",

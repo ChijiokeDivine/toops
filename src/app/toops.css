@@ -1,0 +1,69 @@
+/* ──────────────────────────────────────────────────────────
+   toops — design tokens + a few helpers Tailwind can't express
+   Plain CSS on purpose so it works with Tailwind v3 and v4.
+   ────────────────────────────────────────────────────────── */
+:root {
+  --t-bg: #080d17;
+  --t-surface: #0f1622;
+  --t-surface-2: #161d2b;
+  --t-surface-3: #1b2335;
+  --t-border: rgba(255, 255, 255, 0.06);
+  --t-muted: #7f899c;
+  --t-green: #00fa7f;
+  --t-green-ink: #03170d;
+  --t-gold: #ffdf1a;
+}
+
+html {
+  background: var(--t-bg);
+  color-scheme: dark;
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── Hero ─────────────────────────────────────────────── */
+.hero-surface {
+  background:
+    radial-gradient(60% 50% at 18% 10%, rgba(255, 255, 255, 0.05), transparent 70%),
+    linear-gradient(180deg, #0b1a1b 0%, #07302a 46%, #04a458 100%);
+}
+@media (min-width: 1024px) {
+  .hero-surface {
+    background:
+      radial-gradient(42% 75% at 80% 50%, rgba(0, 255, 140, 0.55), transparent 70%),
+      linear-gradient(100deg, #0a1c19 0%, #0a382b 34%, #06a55a 68%, #00ee7b 100%);
+  }
+}
+
+/* ── Category cards (Casino / Sports) ─────────────────── */
+.card-multiplayer {
+  background:
+    radial-gradient(90% 130% at 100% 108%, rgba(240, 120, 35, 0.62), transparent 62%),
+    linear-gradient(100deg, #131a2c 0%, #171a2a 55%, #221a22 100%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+.card-dual {
+  background:
+    radial-gradient(90% 130% at 100% 60%, rgba(65, 123, 196, 0.45), transparent 62%),
+    linear-gradient(100deg, #0d3473 0%, #174783 55%, #245a96 100%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+/* ── King of the Hill badge ───────────────────────────── */
+.koth-gold {
+  background: linear-gradient(180deg, #fff2a8 0%, #ffc61a 55%, #e08a00 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 1px 0 rgba(120, 60, 0, 0.8));
+}
+
+/* ── Game card brand tab (trapezoid at bottom) ────────── */
+.game-tab {
+  clip-path: polygon(9% 0, 91% 0, 100% 100%, 0 100%);
+}

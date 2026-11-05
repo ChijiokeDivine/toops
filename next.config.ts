@@ -7,7 +7,8 @@ const nextConfig: NextConfig = {
   },
   // Native modules pulled in by the XO storage layer must not be bundled
   // into server functions. They are only used by Node-side adapters.
-  serverExternalPackages: ['better-sqlite3', 'sqlite3', 'canvas'],
+  // The Prisma engine is a native binary and must stay external on Vercel.
+  serverExternalPackages: ['better-sqlite3', 'sqlite3', 'canvas', '@prisma/client'],
 }
 
 export default nextConfig

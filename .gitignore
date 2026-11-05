@@ -37,3 +37,5 @@ out/
 .vercel/
 next-env.d.ts
 *.tsbuildinfo
+
+/src/generated/prisma

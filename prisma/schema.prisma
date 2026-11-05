@@ -1,0 +1,67 @@
+// toops database schema
+// Docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id               String  @id @default(cuid())
+  displayName      String?
+  telegramId       String? @unique
+  telegramUsername String?
+  telegramPhotoUrl String?
+  bchAddress       String? @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  platformWallet PlatformWallet?
+  sessions       Session[]
+  challenges     AuthChallenge[]
+}
+
+model PlatformWallet {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  address           String   @unique
+  publicKey         String
+  encryptedMnemonic String
+  network           String   @default("chipnet")
+  createdAt         DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model AuthChallenge {
+  id        String    @id @default(cuid())
+  address   String
+  nonce     String    @unique
+  message   String
+  expiresAt DateTime
+  usedAt    DateTime?
+  userId    String?
+  user      User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt DateTime  @default(now())
+
+  @@index([address])
+  @@index([expiresAt])
+}
