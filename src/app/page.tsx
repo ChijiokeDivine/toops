@@ -41,7 +41,15 @@ export default async function Home() {
 
   return (
     <main className="mx-auto w-full max-w-[1600px] px-3 pb-24 pt-4 lg:px-4 lg:pb-10">
-      <Hero />
+      <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-[1.7fr_1fr_1fr]">
+        <div className="sm:col-span-2 lg:col-span-1">
+          <Hero />
+        </div>
+
+        {CATEGORIES.map((category) => (
+          <CategoryCard key={category.slug} {...category} />
+        ))}
+      </div>
 
       <div className="mt-4 lg:max-w-md">
         <GameSearch count={GAME_COUNT} />
@@ -49,12 +57,6 @@ export default async function Home() {
 
       <div className="mt-7 space-y-7">
         <OriginalsRow games={ORIGINALS} />
-
-        <div className="grid gap-2.5 sm:grid-cols-2">
-          {CATEGORIES.map((category) => (
-            <CategoryCard key={category.slug} {...category} />
-          ))}
-        </div>
       </div>
 
       <section id="sign-in" className="mt-7 scroll-mt-24">
