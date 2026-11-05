@@ -17,7 +17,11 @@ model User {
   telegramId       String? @unique
   telegramUsername String?
   telegramPhotoUrl String?
+  /// Connected wallet address (used as the payout destination).
   bchAddress       String? @unique
+
+  /// Off-chain game balance, in satoshis. Never derive this from chain state.
+  balanceSats BigInt @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -25,17 +29,22 @@ model User {
   platformWallet PlatformWallet?
   sessions       Session[]
   challenges     AuthChallenge[]
+  deposits       Deposit[]
+  withdrawals    Withdrawal[]
+  ledgerEntries  LedgerEntry[]
 }
 
+/// One HD-derived deposit address per user. The master xpriv/xpub live in
+/// environment variables; the database only stores the derivation index and
+/// public address, never private key material.
 model PlatformWallet {
-  id                String   @id @default(cuid())
-  userId            String   @unique
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  address           String   @unique
-  publicKey         String
-  encryptedMnemonic String
-  network           String   @default("chipnet")
-  createdAt         DateTime @default(now())
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  address         String   @unique
+  derivationIndex Int      @unique
+  network         String   @default("chipnet")
+  createdAt       DateTime @default(now())
 
   @@index([userId])
 }
@@ -51,17 +60,94 @@ model Session {
   @@index([userId])
 }
 
+enum AuthChallengeKind {
+  MESSAGE
+  TRANSACTION
+}
+
 model AuthChallenge {
-  id        String    @id @default(cuid())
+  id        String            @id @default(cuid())
   address   String
-  nonce     String    @unique
+  nonce     String            @unique
+  kind      AuthChallengeKind @default(MESSAGE)
   message   String
+  /// Hex-encoded unsigned challenge transaction (for TRANSACTION challenges).
+  transaction String?
   expiresAt DateTime
   usedAt    DateTime?
   userId    String?
-  user      User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
-  createdAt DateTime  @default(now())
+  user      User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt DateTime          @default(now())
 
   @@index([address])
   @@index([expiresAt])
+}
+
+enum DepositStatus {
+  PENDING
+  CONFIRMED
+  SPENT
+}
+
+model Deposit {
+  id         String        @id @default(cuid())
+  userId     String
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  txid       String
+  vout       Int
+  address    String
+  amountSats BigInt
+  height     Int?
+  status     DepositStatus @default(PENDING)
+  createdAt  DateTime      @default(now())
+
+  @@unique([txid, vout])
+  @@index([userId, createdAt])
+  @@index([address])
+}
+
+enum WithdrawalStatus {
+  PENDING
+  BROADCAST
+  CONFIRMED
+  FAILED
+}
+
+model Withdrawal {
+  id         String           @id @default(cuid())
+  userId     String
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  toAddress  String
+  amountSats BigInt
+  feeSats    BigInt
+  status     WithdrawalStatus @default(PENDING)
+  txid       String?          @unique
+  error      String?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  @@index([userId, createdAt])
+}
+
+enum LedgerKind {
+  DEPOSIT
+  WITHDRAWAL
+  BET
+  WIN
+  ADJUSTMENT
+}
+
+/// Append-only balance history. `amountSats` is signed.
+model LedgerEntry {
+  id               String     @id @default(cuid())
+  userId           String
+  user             User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind             LedgerKind
+  amountSats       BigInt
+  balanceAfterSats BigInt
+  reference        String?    @unique
+  metadata         Json?
+  createdAt        DateTime   @default(now())
+
+  @@index([userId, createdAt])
 }

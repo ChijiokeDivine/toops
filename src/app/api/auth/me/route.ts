@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth/session'
 
 export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 
 export async function GET() {
   const session = await getSession()
@@ -16,7 +17,9 @@ export async function GET() {
       displayName: user.displayName,
       telegramUsername: user.telegramUsername,
       bchAddress: user.bchAddress,
+      balanceSats: user.balanceSats.toString(),
       platformWalletAddress: user.platformWallet?.address ?? null,
+      platformWalletIndex: user.platformWallet?.derivationIndex ?? null,
     },
   })
 }

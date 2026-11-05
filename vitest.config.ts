@@ -5,6 +5,10 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
+      // Vitest runs outside the React Server Components condition, where the
+      // real `server-only` package throws on import. Tests only exercise pure
+      // server helpers, so replace the marker with an empty module.
+      'server-only': fileURLToPath(new URL('./src/test/server-only.ts', import.meta.url)),
     },
   },
   test: {

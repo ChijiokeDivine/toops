@@ -3,7 +3,7 @@ import { CATEGORIES, GAME_COUNT, ORIGINALS } from './_components/data'
 import { GameSearch } from './_components/game-search'
 import { Hero } from './_components/hero'
 import { OriginalsRow } from './_components/originals-row'
-import { CopyButton } from '@/components/auth/copy-button'
+import { AccountWalletPanel } from '@/components/auth/account-wallet-panel'
 import { SignInPanel } from '@/components/auth/sign-in-panel'
 import { SignOutButton } from '@/components/auth/sign-out-button'
 import { getSession } from '@/lib/auth/session'
@@ -58,7 +58,7 @@ export default async function Home() {
       </div>
 
       <section id="sign-in" className="mt-7 scroll-mt-24">
-        {user && wallet ? (
+        {user ? (
           <div className="rounded-[20px] border border-[var(--t-border)] bg-[var(--t-surface)] p-5 lg:p-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-4">
@@ -83,36 +83,27 @@ export default async function Home() {
 
               <div className="flex items-center gap-2">
                 <span className="rounded-full border border-[var(--t-green)]/30 bg-[var(--t-green)]/10 px-3 py-1 text-xs font-medium text-[var(--t-green)]">
-                  {wallet.network}
+                  {wallet?.network ??
+                    (process.env.BCH_NETWORK === 'mainnet' ? 'mainnet' : 'chipnet')}
                 </span>
                 <SignOutButton />
               </div>
             </div>
 
-            <div className="mt-5 rounded-2xl border border-[var(--t-border)] bg-[var(--t-bg)]/60 p-5">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-[var(--t-muted)]">
-                    Your platform wallet
-                  </p>
-                  <p className="mt-1 text-sm text-[var(--t-muted)]">
-                    Created automatically when you signed up.
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-4 flex flex-wrap items-center gap-3">
-                <code className="break-all rounded-lg bg-[var(--t-surface-2)] px-3 py-2 font-mono text-sm text-[var(--t-green)]">
-                  {wallet.address}
-                </code>
-                <CopyButton value={wallet.address} label="Copy address" />
-              </div>
-
-              <p className="mt-4 text-xs text-[var(--t-muted)]">
-                The wallet key is encrypted server-side and never sent to the browser. This is a
-                custodial setup for the hackathon — move to KMS/MPC before holding real funds.
+            {wallet ? (
+              <AccountWalletPanel
+                balanceSats={user.balanceSats.toString()}
+                platformAddress={wallet.address}
+                network={wallet.network}
+                connectedAddress={user.bchAddress}
+                withdrawalFeeSats={process.env.WITHDRAWAL_FEE_SATS ?? '1000'}
+              />
+            ) : (
+              <p className="mt-5 rounded-lg border border-[#ffdf1a]/25 bg-[#ffd60a]/10 p-3 text-sm text-[var(--t-gold)]">
+                Your platform wallet is not available. Add <code>PLATFORM_WALLET_XPRIV</code> or{' '}
+                <code>PLATFORM_WALLET_XPUB</code> to this deployment and sign in again.
               </p>
-            </div>
+            )}
           </div>
         ) : (
           <div className="rounded-[20px] border border-[var(--t-border)] bg-[var(--t-surface)] p-5 lg:p-6">

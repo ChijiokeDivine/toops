@@ -1,111 +1,182 @@
 import 'server-only'
 
-import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto'
 import {
+  decodeHdPrivateKey,
+  decodeHdPublicKey,
   deriveHdPath,
-  deriveHdPrivateNodeFromBip39Mnemonic,
-  generateBip39Mnemonic,
-  instantiateSecp256k1,
+  deriveHdPathRelative,
+  deriveHdPublicNode,
   publicKeyToP2pkhCashAddress,
 } from '@bitauth/libauth'
+import type { HdPrivateNodeValid, HdPublicNodeValid } from '@bitauth/libauth'
+import { Prisma } from '@prisma/client'
 import type { PlatformWallet } from '@prisma/client'
 import { prisma } from '@/lib/db'
 import { getAddressPrefix, getBchNetwork } from '@/lib/bch/network'
 
-const DERIVATION_PATH = "m/44'/145'/0'/0/0"
+/**
+ * BCH BIP44 account path. `PLATFORM_WALLET_XPRIV` may be either the root key
+ * (depth 0) or this account key (depth 3). `PLATFORM_WALLET_XPUB`, when set,
+ * must be the account-level public key (depth 3).
+ */
+const ACCOUNT_PATH = "m/44'/145'/0'"
+const RECEIVE_PATH = '0'
 
-function encryptionKey(): Buffer {
-  const raw = process.env.WALLET_ENCRYPTION_KEY
-  if (!raw) {
-    throw new Error('WALLET_ENCRYPTION_KEY is not set')
+export class PlatformWalletConfigError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'PlatformWalletConfigError'
   }
-
-  const key = Buffer.from(raw, 'base64')
-  if (key.length !== 32) {
-    throw new Error('WALLET_ENCRYPTION_KEY must be a base64-encoded 32-byte key')
-  }
-  return key
 }
 
-/** AES-256-GCM. Format: v1.<iv>.<tag>.<ciphertext> (base64url). */
-export function encryptMnemonic(mnemonic: string): string {
-  const iv = randomBytes(12)
-  const cipher = createCipheriv('aes-256-gcm', encryptionKey(), iv)
-  const ciphertext = Buffer.concat([cipher.update(mnemonic, 'utf8'), cipher.final()])
-  const tag = cipher.getAuthTag()
-
-  return [
-    'v1',
-    iv.toString('base64url'),
-    tag.toString('base64url'),
-    ciphertext.toString('base64url'),
-  ].join('.')
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
 }
 
-export function decryptMnemonic(payload: string): string {
-  const [version, iv, tag, ciphertext] = payload.split('.')
-  if (version !== 'v1' || !iv || !tag || !ciphertext) {
-    throw new Error('Unsupported wallet encryption payload')
-  }
-
-  const decipher = createDecipheriv('aes-256-gcm', encryptionKey(), Buffer.from(iv, 'base64url'))
-  decipher.setAuthTag(Buffer.from(tag, 'base64url'))
-
-  return Buffer.concat([
-    decipher.update(Buffer.from(ciphertext, 'base64url')),
-    decipher.final(),
-  ]).toString('utf8')
+export function isPlatformWalletConfigured(): boolean {
+  return Boolean(process.env.PLATFORM_WALLET_XPRIV || process.env.PLATFORM_WALLET_XPUB)
 }
 
-async function generateWalletMaterial() {
-  const mnemonic = generateBip39Mnemonic()
-  const root = deriveHdPrivateNodeFromBip39Mnemonic(mnemonic)
-  const node = deriveHdPath(root, DERIVATION_PATH)
-  if (typeof node === 'string') {
-    throw new Error('Unable to derive platform wallet')
+function accountPrivateNode(): HdPrivateNodeValid {
+  const xpriv = process.env.PLATFORM_WALLET_XPRIV
+  if (!xpriv) {
+    throw new PlatformWalletConfigError('PLATFORM_WALLET_XPRIV is not configured')
   }
 
-  const secp = await instantiateSecp256k1()
-  const publicKey = secp.derivePublicKeyCompressed(node.privateKey)
-  if (typeof publicKey === 'string') {
-    throw new Error('Unable to derive platform wallet public key')
+  const decoded = decodeHdPrivateKey(xpriv.trim())
+  if (typeof decoded === 'string') {
+    throw new PlatformWalletConfigError(`Invalid PLATFORM_WALLET_XPRIV: ${decoded}`)
   }
+
+  if (decoded.node.depth === 3) return decoded.node
+  if (decoded.node.depth !== 0) {
+    throw new PlatformWalletConfigError(
+      'PLATFORM_WALLET_XPRIV must be a root key (depth 0) or account key (depth 3)',
+    )
+  }
+
+  const account = deriveHdPath(decoded.node, ACCOUNT_PATH)
+  if (typeof account === 'string') {
+    throw new PlatformWalletConfigError(`Unable to derive platform account: ${account}`)
+  }
+  return account
+}
+
+function accountPublicNode(): HdPublicNodeValid {
+  const xpub = process.env.PLATFORM_WALLET_XPUB?.trim()
+  if (xpub) {
+    const decoded = decodeHdPublicKey(xpub)
+    if (typeof decoded === 'string') {
+      throw new PlatformWalletConfigError(`Invalid PLATFORM_WALLET_XPUB: ${decoded}`)
+    }
+    if (decoded.node.depth !== 3) {
+      throw new PlatformWalletConfigError(
+        "PLATFORM_WALLET_XPUB must be the account-level key at m/44'/145'/0' (depth 3)",
+      )
+    }
+    return decoded.node
+  }
+
+  return deriveHdPublicNode(accountPrivateNode())
+}
+
+function derivePublicNode(index: number): HdPublicNodeValid {
+  if (!Number.isSafeInteger(index) || index < 0) {
+    throw new PlatformWalletConfigError('Platform wallet index is invalid')
+  }
+
+  const child = deriveHdPathRelative(accountPublicNode(), `${RECEIVE_PATH}/${index}`, {
+    throwErrors: false,
+  })
+  if (typeof child === 'string') {
+    throw new PlatformWalletConfigError(`Unable to derive platform address: ${child}`)
+  }
+  return child
+}
+
+export function derivePlatformAddress(index: number): {
+  address: string
+  publicKey: Uint8Array
+} {
+  const node = derivePublicNode(index)
   const encoded = publicKeyToP2pkhCashAddress({
-    publicKey,
+    publicKey: node.publicKey,
     prefix: getAddressPrefix(),
   })
-
   if (typeof encoded === 'string') {
-    throw new Error('Unable to encode platform wallet address')
+    throw new PlatformWalletConfigError(`Unable to encode platform address: ${encoded}`)
   }
 
-  return {
-    mnemonic,
-    address: encoded.address,
-    publicKey: Buffer.from(publicKey).toString('hex'),
+  return { address: encoded.address, publicKey: node.publicKey }
+}
+
+/**
+ * Derives the spending key only when a withdrawal is being signed. The key is
+ * returned to the caller and must never be persisted or logged.
+ */
+export function derivePlatformPrivateKey(index: number): Uint8Array {
+  const child = deriveHdPathRelative(accountPrivateNode(), `${RECEIVE_PATH}/${index}`, {
+    throwErrors: false,
+  })
+  if (typeof child === 'string') {
+    throw new PlatformWalletConfigError(`Unable to derive platform private key: ${child}`)
   }
+  return child.privateKey
+}
+
+async function allocateIndex(): Promise<number> {
+  const rows = await prisma.$queryRaw<Array<{ nextval: bigint }>>`
+    SELECT nextval('platform_wallet_index_seq') AS nextval
+  `
+  const value = rows[0]?.nextval
+  if (typeof value === 'undefined') {
+    throw new PlatformWalletConfigError('Unable to allocate a platform wallet index')
+  }
+  return Number(value)
 }
 
 export async function ensurePlatformWallet(userId: string): Promise<PlatformWallet> {
   const existing = await prisma.platformWallet.findUnique({ where: { userId } })
   if (existing) return existing
 
-  const material = await generateWalletMaterial()
-
-  try {
-    return await prisma.platformWallet.create({
-      data: {
-        userId,
-        address: material.address,
-        publicKey: material.publicKey,
-        encryptedMnemonic: encryptMnemonic(material.mnemonic),
-        network: getBchNetwork(),
-      },
-    })
-  } catch (error) {
-    // Another request may have created the wallet first.
-    const raced = await prisma.platformWallet.findUnique({ where: { userId } })
-    if (raced) return raced
-    throw error
+  if (!isPlatformWalletConfigured()) {
+    throw new PlatformWalletConfigError('Platform wallets are not configured on this deployment')
   }
+
+  // The sequence allocates indexes atomically; a unique-constraint retry
+  // handles the (unlikely) case of a concurrent wallet creation for the same
+  // user winning the race.
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const index = await allocateIndex()
+    const { address } = derivePlatformAddress(index)
+
+    try {
+      return await prisma.platformWallet.create({
+        data: {
+          userId,
+          address,
+          derivationIndex: index,
+          network: getBchNetwork(),
+        },
+      })
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        const raced = await prisma.platformWallet.findUnique({ where: { userId } })
+        if (raced) return raced
+        continue
+      }
+      throw error
+    }
+  }
+
+  throw new Error('Unable to create a platform wallet after several attempts')
+}
+
+export async function getPlatformWallet(userId: string): Promise<PlatformWallet | null> {
+  return prisma.platformWallet.findUnique({ where: { userId } })
+}
+
+export function platformWalletErrorMessage(error: unknown): string {
+  if (error instanceof PlatformWalletConfigError) return error.message
+  return errorMessage(error)
 }

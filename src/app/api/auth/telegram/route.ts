@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { verifyTelegramAuth } from '@/lib/auth/telegram'
 import { ensureTelegramUser } from '@/lib/auth/users'
 import { createSession, SESSION_COOKIE, sessionCookieOptions } from '@/lib/auth/session'
+import { PlatformWalletConfigError, platformWalletErrorMessage } from '@/lib/wallet/platform-wallet'
 
 export const runtime = 'nodejs'
 
@@ -33,7 +34,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid Telegram authorization.' }, { status: 401 })
   }
 
-  const user = await ensureTelegramUser(telegramUser)
+  let user
+  try {
+    user = await ensureTelegramUser(telegramUser)
+  } catch (error) {
+    if (error instanceof PlatformWalletConfigError) {
+      return NextResponse.json({ error: platformWalletErrorMessage(error) }, { status: 503 })
+    }
+    console.error('telegram sign-in failed', error)
+    return NextResponse.json({ error: 'Telegram sign-in failed.' }, { status: 500 })
+  }
+
   const { token, expiresAt } = await createSession(user.id)
 
   const response = NextResponse.json({ ok: true, userId: user.id })
