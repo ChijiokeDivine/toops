@@ -25,7 +25,6 @@ type AccountNavProps = {
   balancePusd: string
   platformAddress: string | null
   depositTokenAddress: string | null
-  pusdTokenId: string
   network: string
   connectedAddress: string | null
   withdrawalFeePusd: string
@@ -70,7 +69,6 @@ export function AccountNav({
   balancePusd,
   platformAddress,
   depositTokenAddress,
-  pusdTokenId,
   network,
   connectedAddress,
   withdrawalFeePusd,
@@ -297,7 +295,6 @@ export function AccountNav({
         balancePusd={balancePusd}
         platformAddress={platformAddress}
         depositTokenAddress={depositTokenAddress}
-        pusdTokenId={pusdTokenId}
         connectedAddress={connectedAddress}
         withdrawalFeePusd={withdrawalFeePusd}
         minimumWithdrawalPusd={minimumWithdrawalPusd}

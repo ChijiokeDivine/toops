@@ -3,7 +3,7 @@ import { AccountNav } from '@/components/account/account-nav'
 import { AuthTrigger } from '@/components/auth/auth-trigger'
 import { getSession } from '@/lib/auth/session'
 import { formatPusdUnits } from '@/lib/pusd'
-import { getPusdRate, getPusdTokenId } from '@/lib/pusd-server'
+import { getPusdRate } from '@/lib/pusd-server'
 import { getMinimumWithdrawalPusd, getWithdrawalFeePusd } from '@/lib/wallet/withdrawals'
 import { getPlatformTokenAddress } from '@/lib/wallet/platform-wallet'
 import { utcDayKey } from '@/lib/xp'
@@ -67,7 +67,6 @@ export async function SiteHeader() {
               balancePusd={formatPusdUnits(user.balancePusd)}
               platformAddress={platformAddress}
               depositTokenAddress={depositTokenAddress}
-              pusdTokenId={getPusdTokenId()}
               network={
                 user.platformWallet?.network ??
                 (process.env.BCH_NETWORK === 'mainnet' ? 'mainnet' : 'chipnet')

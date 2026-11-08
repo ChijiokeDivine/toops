@@ -17,7 +17,6 @@ const props = {
   balancePusd: '1234.56',
   platformAddress: 'bchtest:qtestaddress',
   depositTokenAddress: null,
-  pusdTokenId: 'dfe50223c8d5cba8dcef8dff6d92b61deb88a8ba44947367f2b746487b56039b',
   network: 'chipnet',
   connectedAddress: 'bchtest:qpayoutaddress',
   withdrawalFeePusd: '0.04',

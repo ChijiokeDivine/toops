@@ -9,7 +9,6 @@ type AccountWalletPanelProps = {
   balancePusd: string
   platformAddress: string
   depositTokenAddress: string | null
-  pusdTokenId: string
   connectedAddress: string | null
   withdrawalFeePusd: string
   minimumWithdrawalPusd: string
@@ -18,8 +17,6 @@ type AccountWalletPanelProps = {
 }
 
 type WalletTab = 'wallet' | 'withdraw'
-
-const PARYON_APP_URL = 'https://paryonusd.com/app'
 
 function shortenAddress(address: string): string {
   return address.length > 30 ? `${address.slice(0, 14)}…${address.slice(-8)}` : address
@@ -42,7 +39,6 @@ export function AccountWalletPanel({
   balancePusd,
   platformAddress,
   depositTokenAddress,
-  pusdTokenId,
   connectedAddress,
   withdrawalFeePusd,
   minimumWithdrawalPusd,
@@ -185,7 +181,7 @@ export function AccountWalletPanel({
             <p className="mt-2 text-xs text-[var(--t-muted)]">
               Send <span className="text-white">PUSD</span> or{' '}
               <span className="text-white">BCH</span> to this address. BCH deposits are
-              automatically swapped to PUSD. 
+              automatically swapped to PUSD.
             </p>
             <div className="mt-3 flex items-center justify-between gap-2">
               <button
@@ -202,7 +198,6 @@ export function AccountWalletPanel({
                 </p>
               )}
             </div>
-           
           </div>
         </div>
       ) : (

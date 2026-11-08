@@ -16,7 +16,6 @@ type WalletDialogProps = {
   balancePusd: string
   platformAddress: string | null
   depositTokenAddress: string | null
-  pusdTokenId: string
   connectedAddress: string | null
   withdrawalFeePusd: string
   minimumWithdrawalPusd: string
@@ -46,7 +45,6 @@ export function WalletDialog({
   balancePusd,
   platformAddress,
   depositTokenAddress,
-  pusdTokenId,
   connectedAddress,
   withdrawalFeePusd,
   minimumWithdrawalPusd,
@@ -168,7 +166,6 @@ export function WalletDialog({
               balancePusd={balancePusd}
               platformAddress={platformAddress}
               depositTokenAddress={depositTokenAddress}
-              pusdTokenId={pusdTokenId}
               connectedAddress={connectedAddress}
               withdrawalFeePusd={withdrawalFeePusd}
               minimumWithdrawalPusd={minimumWithdrawalPusd}
