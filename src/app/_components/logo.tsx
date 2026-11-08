@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import type { SVGProps } from 'react'
+import Image from 'next/image'
 
 /** Placeholder mark — swap the paths (or the whole component) for the real toops logo. */
 export function LogoMark(props: SVGProps<SVGSVGElement>) {
@@ -15,10 +16,13 @@ export function LogoMark(props: SVGProps<SVGSVGElement>) {
 export function Logo() {
   return (
     <Link href="/" aria-label="toops home" className="flex items-center gap-1.5 lg:gap-2">
-      <LogoMark className="h-5 w-auto lg:h-6" />
-      <span className="text-[22px] font-medium leading-none tracking-tight text-white lg:text-[26px]">
-        toops
-      </span>
+      <Image
+        src="/images/logo.png"
+        alt="toops"
+        width={70}
+        height={60}
+        className="h-6 w-auto lg:h-12"
+      />
     </Link>
   )
 }

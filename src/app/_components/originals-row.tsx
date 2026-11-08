@@ -58,7 +58,7 @@ export function OriginalsRow({ games }: { games: Game[] }) {
             id="originals-title"
             className="text-2xl font-semibold leading-none tracking-tight text-white"
           >
-            toops Originals
+            Toops Originals
           </h2>
         </div>
 

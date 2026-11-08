@@ -3,6 +3,7 @@ import { AuthTrigger } from '@/components/auth/auth-trigger'
 import { WalletIcon, TelegramIcon } from './icons'
 import { LogoMark } from './logo'
 import { TotalBets } from './total-bets'
+import Image from 'next/image'
 
 const SOCIALS = [
   // { label: 'Continue with Google', href: '#google', Icon: GoogleIcon },
@@ -22,13 +23,18 @@ export function Hero() {
         <span className="absolute right-[18%] top-[34%] h-1.5 w-1.5 rotate-45 bg-emerald-300/30 blur-[1px] lg:hidden" />
         <span className="absolute left-[58%] top-[55%] h-1 w-1 rotate-45 bg-emerald-200/40 lg:hidden" />
         {/* desktop: big mark */}
-        <LogoMark className="absolute right-[10%] top-1/2 hidden h-[255px] w-auto -translate-y-1/2 rotate-[6deg] drop-shadow-[0_0_50px_rgba(0,255,140,0.55)] lg:block" />
+        <Image
+          src="/images/gamepad.png"
+          alt="Toops"
+          width={225}
+          height={225}
+          priority
+          className="absolute right-[10%] top-1/2 hidden h-[225px] w-auto -translate-y-1/2  object-contain  lg:block"
+        />
         {/* faint ghost marks */}
-        <LogoMark className="absolute left-[27%] top-[34%] hidden h-9 w-auto opacity-[0.07] grayscale lg:block" />
-        <LogoMark className="absolute left-[6%] top-[22%] hidden h-14 w-auto opacity-[0.05] grayscale lg:block" />
       </div>
 
-      <TotalBets />
+
 
       <div className="mt-5 flex w-full flex-col items-center lg:mt-auto lg:items-start">
         <h1 className="text-[30px] font-bold leading-[1.1] tracking-tight text-white lg:text-[34px]">

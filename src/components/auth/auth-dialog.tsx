@@ -149,15 +149,27 @@ export function AuthDialog() {
         className="max-h-[92dvh] w-full overflow-y-auto rounded-t-[20px] border border-[var(--t-border)] bg-[var(--t-surface)] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.65)] sm:max-w-md sm:rounded-[20px] lg:p-6"
       >
         <div className="flex items-start justify-between gap-4">
-          <div>
+          <div className="flex items-center gap-2">
             <h2 id="auth-dialog-title" className="text-xl font-semibold text-white">
               {linking ? 'Link payout wallet' : 'Sign in to toops'}
             </h2>
-            <p className="mt-1 text-sm text-[var(--t-muted)]">
-              {linking
-                ? 'Pair the WizardConnect wallet that should receive your withdrawals.'
-                : 'Use Telegram or a Bitcoin Cash wallet. Your platform wallet is created automatically.'}
-            </p>
+            <span className="group relative inline-flex">
+              <button
+                type="button"
+                aria-label="Authentication security information"
+                aria-describedby="auth-security-tooltip"
+                className="grid h-6 w-6 shrink-0 cursor-help place-items-center rounded-full border border-[var(--t-border)] text-[10px] font-semibold text-[var(--t-muted)] transition hover:bg-[var(--t-surface-2)] hover:text-white"
+              >
+                ?
+              </button>
+              <span
+                id="auth-security-tooltip"
+                role="tooltip"
+                className="pointer-events-none absolute left-0 top-full z-10 mt-2 w-56 rounded-lg border border-[var(--t-border)] bg-[var(--t-surface-2)] px-3 py-2 text-xs font-normal leading-relaxed text-[var(--t-muted)] opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100"
+              >
+                Your keys never leave your wallet. This window closes when authentication completes.
+              </span>
+            </span>
           </div>
           <button
             type="button"
@@ -219,9 +231,7 @@ export function AuthDialog() {
           )}
         </div>
 
-        <p className="mt-5 border-t border-[var(--t-border)] pt-4 text-xs text-[var(--t-muted)]">
-          Your keys never leave your wallet. This window closes when authentication completes.
-        </p>
+       
       </div>
     </div>
   )
