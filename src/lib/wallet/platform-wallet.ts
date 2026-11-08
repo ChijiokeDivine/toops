@@ -12,6 +12,7 @@ import type { HdPrivateNodeValid, HdPublicNodeValid } from '@bitauth/libauth'
 import { Prisma } from '@prisma/client'
 import type { PlatformWallet } from '@prisma/client'
 import { prisma } from '@/lib/db'
+import { toTokenAwareAddress } from '@/lib/bch/address'
 import { getAddressPrefix, getBchNetwork } from '@/lib/bch/network'
 
 /**
@@ -96,6 +97,7 @@ function derivePublicNode(index: number): HdPublicNodeValid {
 
 export function derivePlatformAddress(index: number): {
   address: string
+  tokenAddress: string
   publicKey: Uint8Array
 } {
   const node = derivePublicNode(index)
@@ -107,7 +109,16 @@ export function derivePlatformAddress(index: number): {
     throw new PlatformWalletConfigError(`Unable to encode platform address: ${encoded}`)
   }
 
-  return { address: encoded.address, publicKey: node.publicKey }
+  return {
+    address: encoded.address,
+    tokenAddress: toTokenAwareAddress(encoded.address),
+    publicKey: node.publicKey,
+  }
+}
+
+/** Token-aware form of a stored platform address (same key, type-2 encoding). */
+export function getPlatformTokenAddress(address: string): string {
+  return toTokenAwareAddress(address)
 }
 
 /**

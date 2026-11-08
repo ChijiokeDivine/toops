@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth/session'
 import { prisma } from '@/lib/db'
+import { formatPusdUnits, satsToPusdUnits } from '@/lib/pusd'
+import { getPusdSatsPerPusd } from '@/lib/pusd-server'
 import { syncUserDeposits } from '@/lib/wallet/deposits'
 
 export const runtime = 'nodejs'
@@ -26,13 +28,17 @@ export async function POST() {
       where: { id: session.userId },
       select: { balanceSats: true },
     })
+    const satsPerPusd = getPusdSatsPerPusd()
 
     return NextResponse.json({
       ok: true,
       newDeposits: result.newDeposits,
       creditedSats: result.creditedSats.toString(),
+      creditedPusd: formatPusdUnits(satsToPusdUnits(result.creditedSats, satsPerPusd)),
       scannedTransactions: result.scannedTransactions,
       balanceSats: user.balanceSats.toString(),
+      balancePusd: formatPusdUnits(satsToPusdUnits(user.balanceSats, satsPerPusd)),
+      satsPerPusd: satsPerPusd.toString(),
     })
   } catch (error) {
     console.error('deposit sync failed', error)

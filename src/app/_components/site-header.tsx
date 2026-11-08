@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { AccountNav } from '@/components/account/account-nav'
 import { AuthTrigger } from '@/components/auth/auth-trigger'
 import { getSession } from '@/lib/auth/session'
+import { getPusdSatsPerPusd } from '@/lib/pusd-server'
 import { utcDayKey } from '@/lib/xp'
 import { KingOfTheHill } from './king-of-the-hill'
 import { Logo } from './logo'
@@ -58,6 +59,7 @@ export async function SiteHeader() {
               }
               connectedAddress={user.bchAddress}
               withdrawalFeeSats={process.env.WITHDRAWAL_FEE_SATS ?? '1000'}
+              pusdSatsPerUnit={getPusdSatsPerPusd().toString()}
             />
           ) : (
             <div className="flex items-center gap-2">

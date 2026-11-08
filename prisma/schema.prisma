@@ -24,7 +24,9 @@ model User {
   /// Connected wallet address (used as the payout destination).
   bchAddress       String? @unique
 
-  /// Off-chain game balance, in satoshis. Never derive this from chain state.
+  /// Off-chain game balance, in PUSD base units (2 decimals). Never derive this from chain state.
+  balancePusd BigInt @default(0)
+  /// Legacy BCH balance in satoshis (pre-PUSD). Kept for historical rows only.
   balanceSats BigInt @default(0)
 
   /// Lifetime XP earned from daily check-ins. Off-chain only.
@@ -122,7 +124,13 @@ model Deposit {
   txid       String
   vout       Int
   address    String
-  amountSats BigInt
+  /// BCH satoshis received for a native-BCH deposit (0 for token deposits).
+  amountSats BigInt   @default(0)
+  /// PUSD base units credited to the user (2 decimals).
+  amountPusd BigInt   @default(0)
+  /// Cauldron swap that converted this BCH deposit into PUSD, when applicable.
+  swapTxid   String?
+  swapError  String?
   height     Int?
   status     DepositStatus @default(PENDING)
   createdAt  DateTime      @default(now())
@@ -144,8 +152,18 @@ model Withdrawal {
   userId     String
   user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   toAddress  String
-  amountSats BigInt
-  feeSats    BigInt
+  /// Payout asset chosen by the user: `PUSD` (token) or `BCH` (swapped).
+  payoutAsset String          @default("PUSD")
+  /// PUSD base units debited for the payout.
+  amountPusd BigInt           @default(0)
+  /// PUSD base units charged as the platform/network fee.
+  feePusd    BigInt           @default(0)
+  /// Actual BCH satoshis sent (0 for a PUSD payout).
+  amountSats BigInt           @default(0)
+  /// Actual BCH network fee paid from the platform reserve.
+  feeSats    BigInt           @default(0)
+  /// Cauldron swap used for a BCH payout, when applicable.
+  swapTxid   String?
   status     WithdrawalStatus @default(PENDING)
   txid       String?          @unique
   error      String?
@@ -163,14 +181,17 @@ enum LedgerKind {
   ADJUSTMENT
 }
 
-/// Append-only balance history. `amountSats` is signed.
+/// Append-only balance history. `amountPusd` is signed, in PUSD base units.
 model LedgerEntry {
   id               String     @id @default(cuid())
   userId           String
   user             User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   kind             LedgerKind
-  amountSats       BigInt
-  balanceAfterSats BigInt
+  amountPusd       BigInt     @default(0)
+  balanceAfterPusd BigInt     @default(0)
+  /// Legacy satoshi columns, retained for pre-PUSD rows.
+  amountSats       BigInt     @default(0)
+  balanceAfterSats BigInt     @default(0)
   reference        String?    @unique
   metadata         Json?
   createdAt        DateTime   @default(now())

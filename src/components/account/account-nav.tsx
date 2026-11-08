@@ -27,6 +27,7 @@ type AccountNavProps = {
   network: string
   connectedAddress: string | null
   withdrawalFeeSats: string
+  pusdSatsPerUnit: string
 }
 
 type MenuName = 'profile' | 'notifications' | null

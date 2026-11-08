@@ -12,6 +12,30 @@ export type ElectrumUtxo = {
   tx_pos: number
   height: number
   value: number
+  /** Present when the output carries a CashToken. */
+  token?: {
+    category: string
+    amount: bigint
+    nft?: {
+      capability: string
+      commitment: string
+    }
+  }
+}
+
+type RawElectrumUtxo = {
+  tx_hash: string
+  tx_pos: number
+  height: number
+  value: number
+  token_data?: {
+    category: string
+    amount: string | number | bigint
+    nft?: {
+      capability: string
+      commitment: string
+    }
+  }
 }
 
 type PendingRequest = {
@@ -84,7 +108,7 @@ export function addressToScripthash(address: string): string {
   if (typeof decoded === 'string') {
     throw new Error(`Invalid BCH address: ${decoded}`)
   }
-  if (decoded.type !== 'p2pkh') {
+  if (decoded.type !== 'p2pkh' && decoded.type !== 'p2pkhWithTokens') {
     throw new Error('Only P2PKH addresses are supported')
   }
 
@@ -228,9 +252,26 @@ export async function getAddressHistory(address: string): Promise<ElectrumHistor
 
 export async function getAddressUtxos(address: string): Promise<ElectrumUtxo[]> {
   const scripthash = addressToScripthash(address)
-  return withElectrum((client) =>
-    client.request<ElectrumUtxo[]>('blockchain.scripthash.listunspent', [scripthash]),
+  const utxos = await withElectrum((client) =>
+    client.request<RawElectrumUtxo[]>('blockchain.scripthash.listunspent', [
+      scripthash,
+      'include_tokens',
+    ]),
   )
+
+  return utxos.map((utxo) => ({
+    tx_hash: utxo.tx_hash,
+    tx_pos: utxo.tx_pos,
+    height: utxo.height,
+    value: utxo.value,
+    token: utxo.token_data
+      ? {
+          category: utxo.token_data.category,
+          amount: BigInt(utxo.token_data.amount),
+          nft: utxo.token_data.nft,
+        }
+      : undefined,
+  }))
 }
 
 export async function getTransactionHex(txid: string): Promise<string> {

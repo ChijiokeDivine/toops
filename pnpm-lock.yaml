@@ -11,6 +11,9 @@ importers:
       '@bitauth/libauth':
         specifier: 3.1.0-next.8
         version: 3.1.0-next.8
+      '@mr-zwets/cauldron-swap-sdk':
+        specifier: ^0.2.0
+        version: 0.2.0
       '@prisma/client':
         specifier: 6.19.3
         version: 6.19.3(typescript@7.0.2)
@@ -171,6 +174,9 @@ packages:
   '@bramus/specificity@2.4.3':
     resolution: {integrity: sha512-0GEz8qJWokkUVYQYRukmkSHIFNoBH8QTreeHrAFbvz1XFYc3Y+puhMs8PQ5x8GNugiC2l5jvDBXKLbBIByeSBw==}
     hasBin: true
+
+  '@cashscript/utils@0.13.3':
+    resolution: {integrity: sha512-uzt01AgBGowiGdCpnwW7/x4LEg4Pxh6Yw5cpEPW1j2RMiwY29xH4zlVipAoO/gHJyuyf05SJiGfaKGdNEZcgew==}
 
   '@cashscript/utils@0.14.0':
     resolution: {integrity: sha512-gPCImBQAOyPu8ndHxvciiqBz5cjTneSWqzQdQoPOZH5zNQnAdzZ4bYykzgI7DOfCGum32DHFmusqm5GrAyiT4A==}
@@ -432,6 +438,9 @@ packages:
     resolution: {integrity: sha512-BWfWUffbg3uO4K6Cyokg9ff43lPaXAOZcCnNe1lcjCjUMDVrRAb5qEHG5qeJp3ud2SPYbORaNsls5as6SR3oig==}
     peerDependencies:
       ws: '*'
+
+  '@mr-zwets/cauldron-swap-sdk@0.2.0':
+    resolution: {integrity: sha512-O054GtQAQjBe0kD8BGccG2MJmrAcUmAHlzs/R9ftaxcK1a5XkloYG0lFFuckamma1rdChay9vRfJeYZvd2hFfg==}
 
   '@next/env@16.4.5':
     resolution: {integrity: sha512-JwSPwpdkZL5VMl2jA/q+JI8MZdweAL3xmw5/tb9y/TLtmS0YXZnmYDzSihwk8xTj1OL+WM53gTqaj96yuLp6Xw==}
@@ -1265,6 +1274,9 @@ packages:
   cashc@0.14.0:
     resolution: {integrity: sha512-+9uP2auBiLs3Vp0OxioiylRFX5gOrmVb7fQQNz3hLjV7hKuWjpKTBgARusdzQI1yZwVDDe8HqzovsAmxC8MYDw==}
     hasBin: true
+
+  cashscript@0.13.3:
+    resolution: {integrity: sha512-8+B7wWbGtCsmQfZKVlH9S7SR9eLzfQqqUmGolmWc1HMca/j8ocXy7MpeBAPm617Cfpw3qSAmyzgGT9AuFrXCQg==}
 
   cashscript@0.14.0:
     resolution: {integrity: sha512-9EWS4p7cXagg0PDBh9e+D/TKEayb4/jeDTjy6xvcB3VUru6SQc4k66fyg55uihxVkY1ME8WgbguTsEDeb7SVTw==}
@@ -2575,6 +2587,10 @@ snapshots:
       css-tree: 3.2.1
     optional: true
 
+  '@cashscript/utils@0.13.3':
+    dependencies:
+      '@bitauth/libauth': 3.1.0-next.8
+
   '@cashscript/utils@0.14.0':
     dependencies:
       '@bitauth/libauth': 3.1.0-next.8
@@ -2822,6 +2838,15 @@ snapshots:
   '@monsterbitar/isomorphic-ws@5.3.1(ws@8.22.1)':
     dependencies:
       ws: 8.22.1
+
+  '@mr-zwets/cauldron-swap-sdk@0.2.0':
+    dependencies:
+      '@bitauth/libauth': 3.1.0-next.8
+      cashscript: 0.13.3
+    transitivePeerDependencies:
+      - bufferutil
+      - supports-color
+      - utf-8-validate
 
   '@next/env@16.4.5': {}
 
@@ -3526,6 +3551,18 @@ snapshots:
       antlr4: 4.13.2
       commander: 14.0.3
       semver: 7.8.6
+
+  cashscript@0.13.3:
+    dependencies:
+      '@bitauth/libauth': 3.1.0-next.8
+      '@cashscript/utils': 0.13.3
+      '@electrum-cash/network': 4.4.8
+      fflate: 0.8.3
+      semver: 7.8.6
+    transitivePeerDependencies:
+      - bufferutil
+      - supports-color
+      - utf-8-validate
 
   cashscript@0.14.0:
     dependencies:
