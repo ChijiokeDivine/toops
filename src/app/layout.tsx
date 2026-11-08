@@ -3,6 +3,7 @@ import { Outfit } from 'next/font/google'
 import type { ReactNode } from 'react'
 import './globals.css'
 import './toops.css'
+import { AuthDialog } from '@/components/auth/auth-dialog'
 import { FloatingActions } from './_components/floating-actions'
 import { MobileNav } from './_components/mobile-nav'
 import { SiteHeader } from './_components/site-header'
@@ -26,6 +27,7 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
         {children}
         <MobileNav />
         <FloatingActions />
+        <AuthDialog />
       </body>
     </html>
   )

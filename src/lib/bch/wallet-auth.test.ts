@@ -24,6 +24,8 @@ import {
 const MNEMONIC =
   'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about'
 const SIGNING_SERIALIZATION_TYPE = 0x41
+/** SIGHASH_ALL | SIGHASH_UTXOS | SIGHASH_FORKID, as used by Cashonize. */
+const WIZARD_CONNECT_SIGNING_SERIALIZATION_TYPE = 0x61
 
 async function fixture() {
   const root = deriveHdPrivateNodeFromBip39Mnemonic(MNEMONIC)
@@ -48,6 +50,8 @@ async function signChallenge(params: {
   privateKey: Uint8Array
   publicKey: Uint8Array
   secp: Awaited<ReturnType<typeof instantiateSecp256k1>>
+  schnorr?: boolean
+  signingSerializationType?: number
 }): Promise<string> {
   const transaction = decodeTransactionBch(hexToBin(params.transactionHex))
   if (typeof transaction === 'string') throw new Error(transaction)
@@ -55,6 +59,7 @@ async function signChallenge(params: {
   const decoded = decodeCashAddress(params.address)
   if (typeof decoded === 'string') throw new Error(decoded)
 
+  const signingSerializationType = params.signingSerializationType ?? SIGNING_SERIALIZATION_TYPE
   const lockingBytecode = encodeLockingBytecodeP2pkh(decoded.payload)
   const sourceOutputs: Output[] = [{ lockingBytecode, valueSatoshis: WALLET_CHALLENGE_VALUE_SATS }]
 
@@ -62,16 +67,18 @@ async function signChallenge(params: {
     { inputIndex: 0, sourceOutputs, transaction },
     {
       coveredBytecode: lockingBytecode,
-      signingSerializationType: Uint8Array.of(SIGNING_SERIALIZATION_TYPE),
+      signingSerializationType: Uint8Array.of(signingSerializationType),
     },
   )
 
-  const signature = params.secp.signMessageHashDER(params.privateKey, hash256(preimage))
+  const signature = params.schnorr
+    ? params.secp.signMessageHashSchnorr(params.privateKey, hash256(preimage))
+    : params.secp.signMessageHashDER(params.privateKey, hash256(preimage))
   if (typeof signature === 'string') throw new Error(signature)
 
   const signatureWithType = new Uint8Array(signature.length + 1)
   signatureWithType.set(signature)
-  signatureWithType[signature.length] = SIGNING_SERIALIZATION_TYPE
+  signatureWithType[signature.length] = signingSerializationType
 
   const input = transaction.inputs[0]
   if (!input) throw new Error('Challenge transaction has no input')
@@ -97,6 +104,33 @@ describe('wallet challenge verification', () => {
       privateKey: node.privateKey,
       publicKey,
       secp,
+    })
+
+    await expect(
+      verifyWalletChallenge({
+        address,
+        nonce,
+        expectedTransaction: challenge.transaction,
+        signedTransaction,
+      }),
+    ).resolves.toBe(true)
+  })
+
+  it('verifies a Schnorr signature with SIGHASH_UTXOS (Cashonize)', async () => {
+    const { node, secp, publicKey, address } = await fixture()
+    const nonce = 'e'.repeat(32)
+    const challenge = createWalletChallenge(address, nonce)
+    expect(challenge).not.toBeNull()
+    if (!challenge) return
+
+    const signedTransaction = await signChallenge({
+      transactionHex: challenge.transaction,
+      address,
+      privateKey: node.privateKey,
+      publicKey,
+      secp,
+      schnorr: true,
+      signingSerializationType: WIZARD_CONNECT_SIGNING_SERIALIZATION_TYPE,
     })
 
     await expect(

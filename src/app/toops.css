@@ -54,6 +54,21 @@ html {
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
+/* ── XP ───────────────────────────────────────────────── */
+.xp-surface {
+  background:
+    radial-gradient(85% 120% at 100% 0%, rgba(255, 210, 26, 0.26), transparent 58%),
+    radial-gradient(70% 90% at 0% 100%, rgba(0, 250, 127, 0.16), transparent 62%),
+    linear-gradient(120deg, #101827 0%, #171a20 55%, #241f0f 100%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+.xp-gold-text {
+  background: linear-gradient(180deg, #fff6c2 0%, #ffd21a 55%, #e59b00 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
 /* ── King of the Hill badge ───────────────────────────── */
 .koth-gold {
   background: linear-gradient(180deg, #fff2a8 0%, #ffc61a 55%, #e08a00 100%);

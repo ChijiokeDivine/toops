@@ -53,7 +53,7 @@ NEXT_PUBLIC_TELEGRAM_BOT_USERNAME=
 BCH_NETWORK=chipnet
 ELECTRUM_WSS_URL=wss://chipnet.imaginary.cash:50004
 TELEGRAM_BOT_TOKEN=
-DATABASE_URL="postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres?pgbouncer=true"
+DATABASE_URL="postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres?pgbouncer=true&connect_timeout=15"
 DIRECT_URL="postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres"
 PLATFORM_WALLET_XPRIV=
 PLATFORM_WALLET_XPUB=
@@ -63,7 +63,7 @@ CRON_SECRET=
 
 ### Database
 
-Use the Supabase **transaction-mode pooler** (`:6543`, `?pgbouncer=true`) for `DATABASE_URL`, and the **session-mode pooler** (`:5432`) for `DIRECT_URL`, which Prisma uses for migrations.
+Use the Supabase **transaction-mode pooler** (`:6543`, `?pgbouncer=true&connect_timeout=15`) for `DATABASE_URL`, and the **session-mode pooler** (`:5432`) for `DIRECT_URL`, which Prisma uses for migrations. The longer connect timeout avoids transient `P1001` errors while Supabase resumes a pooled connection.
 
 The HD wallet migration creates `platform_wallet_index_seq`, a Postgres sequence that hands out unique derivation indexes atomically. If you add users while the sequence does not exist, wallet creation fails — apply migrations first.
 
@@ -117,11 +117,30 @@ node -e "import('@bitauth/libauth').then(m => {
 - **Withdrawals:** `POST /api/wallet/withdraw` can only pay the wallet address linked to the account. It reserves the amount with a conditional balance decrement, builds and signs the transaction, broadcasts it, records the `Withdrawal`, and refunds the reservation if the broadcast fails.
 - **Minimum / fee:** the minimum withdrawal is 1000 sats. `WITHDRAWAL_FEE_SATS` sets the fee floor; the builder raises it when the estimated transaction size requires more.
 
+### XP and daily check-ins
+
+XP is off-chain account progress and has nothing to do with the BCH balance.
+
+- **Claim:** `POST /api/xp/claim` requires a session. Each user can claim once per UTC day.
+- **Reward:** 100 XP for the first day, +25 XP per consecutive day, capped at +150 XP bonus (day 7 and beyond).
+- **Persistence:** `User.xp`, `User.xpStreak`, and `User.xpLastClaimedAt` hold the running totals; every claim appends an `XpClaim` row.
+- **Anti-double-claim:** the unique `(userId, dayKey)` index on `XpClaim` is the database-level guard, so concurrent requests cannot claim twice.
+- **Levels:** every 500 XP is a new level. The `/xp` page shows the current level, streak, claim button, countdown to the next UTC midnight, and claim history.
+- **Missing a day:** a gap of more than one UTC day resets the streak to day one on the next claim.
+
+Relevant code:
+
+- `src/lib/xp.ts` — claim rules, streak/level math, and summary queries.
+- `src/app/api/xp/claim/route.ts` — authenticated claim endpoint.
+- `src/app/xp/page.tsx` — signed-in dashboard and signed-out prompt.
+- `src/components/xp/xp-claim-card.tsx` — claim button and live countdown.
+- `src/components/account/account-nav.tsx` — header XP, notifications, and profile menu.
+
 ## Authentication
 
 - **Sessions:** random 32-byte tokens stored as SHA-256 hashes in the `Session` table, sent as an httpOnly, SameSite=Lax cookie (`toops_session`) for 30 days. Raw tokens are never stored.
 - **Telegram:** the widget payload is verified server-side with HMAC-SHA256 using the bot token. Signatures older than 24 hours are rejected.
-- **BCH wallet:** the server issues a single-use challenge transaction (10-minute TTL). The wallet signs it with the receive-path key, and the server verifies the signature against the challenge template and the claimed address. Challenges are consumed atomically to prevent replay.
+- **BCH wallet:** the server issues a single-use challenge transaction (10-minute TTL). The wallet signs it with the receive-path key, and the server verifies the signature against the challenge template and the claimed address. Challenges are consumed atomically to prevent replay; expired rows are purged on the next challenge request and by the cron sync.
 - **Payout wallet linking:** a signed-in user can attach a wallet address through the same challenge flow; the address is stored on `User.bchAddress` and is the only valid withdrawal destination.
 - **Platform wallet:** created on first sign-in if missing. The BIP44 index comes from the Postgres sequence; only the public address is stored.
 

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { cleanupExpiredWalletChallenges } from '@/lib/auth/wallet-challenge'
 import { syncAllDeposits } from '@/lib/wallet/deposits'
 
 export const runtime = 'nodejs'
@@ -27,6 +28,12 @@ export async function GET(request: Request) {
 
   try {
     const result = await syncAllDeposits(limit)
+    const expiredChallengesDeleted = await cleanupExpiredWalletChallenges().catch(
+      (error: unknown) => {
+        console.error('expired challenge cleanup failed', error)
+        return null
+      },
+    )
     return NextResponse.json({
       ok: true,
       users: result.users,
@@ -34,6 +41,7 @@ export async function GET(request: Request) {
       newDeposits: result.newDeposits,
       creditedSats: result.creditedSats.toString(),
       errors: result.errors,
+      expiredChallengesDeleted,
     })
   } catch (error) {
     console.error('bulk deposit sync failed', error)

@@ -22,6 +22,59 @@ type PendingRequest = {
 
 const REQUEST_TIMEOUT_MS = 20_000
 
+function findJsonValueEnd(text: string): number {
+  let depth = 0
+  let inString = false
+  let escaped = false
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index]
+
+    if (inString) {
+      if (escaped) escaped = false
+      else if (char === '\\') escaped = true
+      else if (char === '"') inString = false
+      continue
+    }
+
+    if (char === '"') inString = true
+    else if (char === '{' || char === '[') depth += 1
+    else if (char === '}' || char === ']') {
+      depth -= 1
+      if (depth <= 0) return index + 1
+    }
+  }
+
+  return -1
+}
+
+/**
+ * Extracts complete JSON-RPC payloads from a WebSocket frame buffer.
+ *
+ * Fulcrum sends each response as its own frame with no trailing newline, so a
+ * newline-only delimiter never flushes the buffer. Scan for balanced JSON
+ * values instead, which also handles newline-delimited servers and multiple
+ * responses packed into one frame.
+ */
+export function takeJsonMessages(buffer: string): { messages: string[]; rest: string } {
+  const messages: string[] = []
+  let rest = buffer
+
+  for (;;) {
+    const brace = rest.indexOf('{')
+    const bracket = rest.indexOf('[')
+    const firstValue = brace < 0 ? bracket : bracket < 0 ? brace : Math.min(brace, bracket)
+    if (firstValue < 0) return { messages, rest: '' }
+    if (firstValue > 0) rest = rest.slice(firstValue)
+
+    const end = findJsonValueEnd(rest)
+    if (end < 0) return { messages, rest }
+
+    messages.push(rest.slice(0, end))
+    rest = rest.slice(end)
+  }
+}
+
 export function getElectrumUrl(): string {
   return process.env.ELECTRUM_WSS_URL ?? 'wss://chipnet.imaginary.cash:50004'
 }
@@ -118,15 +171,11 @@ class ElectrumClient {
   }
 
   private onMessage(event: MessageEvent): void {
-    this.buffer += typeof event.data === 'string' ? event.data : String(event.data)
+    const data = typeof event.data === 'string' ? event.data : String(event.data)
+    const { messages, rest } = takeJsonMessages(this.buffer + data)
+    this.buffer = rest
 
-    let newline = this.buffer.indexOf('\n')
-    while (newline >= 0) {
-      const line = this.buffer.slice(0, newline).trim()
-      this.buffer = this.buffer.slice(newline + 1)
-      if (line) this.handleLine(line)
-      newline = this.buffer.indexOf('\n')
-    }
+    for (const message of messages) this.handleLine(message)
   }
 
   private handleLine(line: string): void {

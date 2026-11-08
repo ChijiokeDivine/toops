@@ -53,6 +53,42 @@ export function SportsIcon(props: IconProps) {
   )
 }
 
+export function CalendarIcon(props: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...a11y}
+      {...props}
+    >
+      <rect x="3.5" y="5" width="17" height="16" rx="2.5" />
+      <path d="M7.5 3v4M16.5 3v4M3.5 9.5h17" />
+    </svg>
+  )
+}
+
+export function ChartUpIcon(props: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...a11y}
+      {...props}
+    >
+      <path d="M3.5 20.5h17M5.5 16l5-5 3.5 3.5 5.5-7" />
+      <path d="M15.5 7.5h4v4" />
+    </svg>
+  )
+}
+
 export function GiftIcon(props: IconProps) {
   return (
     <svg viewBox="0 0 24 24" {...a11y} {...props}>
@@ -204,6 +240,230 @@ export function CrownIcon(props: IconProps) {
     </svg>
   )
 }
+
+/* ── Account / XP ────────────────────────────────────── */
+
+export function XpIcon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" {...a11y} {...props}>
+      <path
+        d="M13.4 2.2 5.2 13.1c-.4.5 0 1.2.6 1.2h4.4l-1.3 7.2c-.1.7.7 1.1 1.2.6l8.4-11c.4-.5 0-1.2-.6-1.2h-4.6l1.2-7c.1-.7-.7-1.1-1.1-.7Z"
+        fill="currentColor"
+      />
+    </svg>
+  )
+}
+
+export function BellIcon(props: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...a11y}
+      {...props}
+    >
+      <path d="M18 8.6a6 6 0 0 0-12 0c0 4.2-1.4 5.6-2 6.4h16c-.6-.8-2-2.2-2-6.4Z" />
+      <path d="M9.7 18.4a2.5 2.5 0 0 0 4.6 0" />
+    </svg>
+  )
+}
+
+export function ChevronDownIcon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" {...a11y} {...props}>
+      <path
+        d="m6.5 9.5 5.5 5.5 5.5-5.5"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+export function UserIcon(props: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...a11y}
+      {...props}
+    >
+      <circle cx="12" cy="8" r="3.6" />
+      <path d="M4.8 20.2c.6-3.6 3.6-5.6 7.2-5.6s6.6 2 7.2 5.6" />
+    </svg>
+  )
+}
+
+export function TransactionsIcon(props: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...a11y}
+      {...props}
+    >
+      <path d="M4 8h13.5M14 4.5 17.5 8 14 11.5" />
+      <path d="M20 16H6.5M10 12.5 6.5 16l3.5 3.5" />
+    </svg>
+  )
+}
+
+export function TicketIcon(props: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...a11y}
+      {...props}
+    >
+      <path d="M3.5 8.5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2v1.2a2.3 2.3 0 0 0 0 4.6v1.2a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2v-1.2a2.3 2.3 0 0 0 0-4.6V8.5Z" />
+      <path d="M12 7.2v1.6M12 11.2v1.6M12 15.2v1.6" strokeDasharray="0.1 3" />
+    </svg>
+  )
+}
+
+export function SettingsIcon(props: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...a11y}
+      {...props}
+    >
+      <circle cx="12" cy="12" r="3.1" />
+      <path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l1.6-1.2-1.8-3.1-1.9.8a7.7 7.7 0 0 0-2.6-1.5L14.4 3h-3.6l-.3 2.5A7.7 7.7 0 0 0 8 7l-1.9-.8-1.8 3.1L5.9 10.5a7.6 7.6 0 0 0 0 3L4.3 14.7l1.8 3.1 1.9-.8a7.7 7.7 0 0 0 2.5 1.5l.3 2.5h3.6l.3-2.5a7.7 7.7 0 0 0 2.6-1.5l1.9.8 1.8-3.1-1.6-1.2Z" />
+    </svg>
+  )
+}
+
+export function LogoutIcon(props: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...a11y}
+      {...props}
+    >
+      <path d="M14.5 4.5h-8a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h8" />
+      <path d="M17.5 8.5 21 12l-3.5 3.5M10 12h11" />
+    </svg>
+  )
+}
+
+/* ── Profile ─────────────────────────────────────────── */
+
+export function LockIcon(props: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...a11y}
+      {...props}
+    >
+      <rect x="4.5" y="10" width="15" height="10.5" rx="2.5" />
+      <path d="M8 10V7.5a4 4 0 0 1 8 0V10" />
+      <circle cx="12" cy="15.3" r="1.2" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
+export function LinkIcon(props: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...a11y}
+      {...props}
+    >
+      <path d="M10 13.5a4.2 4.2 0 0 0 6 0l2.4-2.4a4.2 4.2 0 0 0-6-6L11.2 6.3" />
+      <path d="M14 10.5a4.2 4.2 0 0 0-6 0l-2.4 2.4a4.2 4.2 0 0 0 6 6l1.2-1.2" />
+    </svg>
+  )
+}
+
+export function UsersIcon(props: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...a11y}
+      {...props}
+    >
+      <circle cx="9" cy="8" r="3.2" />
+      <path d="M3.4 19.4c.5-3.2 2.9-4.9 5.6-4.9s5.1 1.7 5.6 4.9" />
+      <path d="M16 5.2a3 3 0 0 1 0 5.6M17.6 14.7c2 .5 3.3 2.1 3.6 4.3" />
+    </svg>
+  )
+}
+
+export function StarIcon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" {...a11y} {...props}>
+      <path
+        d="m12 2.8 2.9 5.9 6.5.9-4.7 4.6 1.1 6.5-5.8-3.1-5.8 3.1 1.1-6.5L2.6 9.6l6.5-.9L12 2.8Z"
+        fill="currentColor"
+      />
+    </svg>
+  )
+}
+
+export function UploadIcon(props: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...a11y}
+      {...props}
+    >
+      <path d="M12 16V4.5M8 8l4-3.5L16 8" />
+      <path d="M4.5 15.5v2.5a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-2.5" />
+    </svg>
+  )
+}
+
+/* ── Brand marks ─────────────────────────────────────── */
 
 const STAR_POINTS = Array.from({ length: 24 }, (_, i) => {
   const r = i % 2 === 0 ? 12 : 9.7

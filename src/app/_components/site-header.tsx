@@ -1,6 +1,8 @@
 import Link from 'next/link'
-import { SignOutButton } from '@/components/auth/sign-out-button'
+import { AccountNav } from '@/components/account/account-nav'
+import { AuthTrigger } from '@/components/auth/auth-trigger'
 import { getSession } from '@/lib/auth/session'
+import { utcDayKey } from '@/lib/xp'
 import { KingOfTheHill } from './king-of-the-hill'
 import { Logo } from './logo'
 
@@ -16,9 +18,11 @@ export async function SiteHeader() {
   const session = await getSession()
   const user = session?.user
 
-  const label = user?.telegramUsername
-    ? `@${user.telegramUsername}`
-    : (user?.displayName ?? 'My account')
+  const name =
+    user?.displayName ?? (user?.telegramUsername ? `@${user.telegramUsername}` : 'BCH user')
+  const claimAvailable = Boolean(
+    user && (!user.xpLastClaimedAt || utcDayKey(user.xpLastClaimedAt) !== utcDayKey(new Date())),
+  )
 
   return (
     <header className="sticky top-0 z-40 border-b border-[var(--t-border)] bg-[rgba(8,13,23,0.92)] backdrop-blur-md">
@@ -40,29 +44,35 @@ export async function SiteHeader() {
         <div className="ml-auto flex items-center">
           <KingOfTheHill />
           {user ? (
-            <div className="flex items-center gap-2">
-              <Link
-                href="/#sign-in"
-                className="flex h-[43px] max-w-[160px] items-center truncate rounded-[10px] bg-[var(--t-surface-2)] px-3.5 text-base font-semibold text-white transition-colors hover:bg-[var(--t-surface-3)]"
-              >
-                {label}
-              </Link>
-              <SignOutButton />
-            </div>
+            <AccountNav
+              name={name}
+              username={user.telegramUsername}
+              imageUrl={user.avatarUrl ?? user.telegramPhotoUrl}
+              xp={user.xp}
+              claimAvailable={claimAvailable}
+              balanceSats={user.balanceSats.toString()}
+              platformAddress={user.platformWallet?.address ?? null}
+              network={
+                user.platformWallet?.network ??
+                (process.env.BCH_NETWORK === 'mainnet' ? 'mainnet' : 'chipnet')
+              }
+              connectedAddress={user.bchAddress}
+              withdrawalFeeSats={process.env.WITHDRAWAL_FEE_SATS ?? '1000'}
+            />
           ) : (
             <div className="flex items-center gap-2">
-              <Link
-                href="/#sign-in"
-                className="flex h-[43px] items-center rounded-[10px] bg-[var(--t-surface-2)] px-3.5 text-base font-semibold text-white transition-colors hover:bg-[var(--t-surface-3)]"
+              <AuthTrigger
+                view="telegram"
+                className="flex h-[43px] cursor-pointer items-center rounded-[10px] bg-[var(--t-surface-2)] px-3.5 text-base font-semibold text-white transition-colors hover:bg-[var(--t-surface-3)]"
               >
                 Sign in
-              </Link>
-              <Link
-                href="/#sign-in"
-                className="flex h-[43px] items-center rounded-[10px] bg-[var(--t-green)] px-3.5 text-base font-semibold text-[var(--t-green-ink)] shadow-[0_0_24px_rgba(0,250,127,0.28)] transition hover:brightness-110 active:scale-[0.98]"
+              </AuthTrigger>
+              <AuthTrigger
+                view="telegram"
+                className="flex h-[43px] cursor-pointer items-center rounded-[10px] bg-[var(--t-green)] px-3.5 text-base font-semibold text-[var(--t-green-ink)] shadow-[0_0_24px_rgba(0,250,127,0.28)] transition hover:brightness-110 active:scale-[0.98]"
               >
                 Sign up
-              </Link>
+              </AuthTrigger>
             </div>
           )}
         </div>

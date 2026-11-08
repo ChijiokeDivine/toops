@@ -1,12 +1,13 @@
 import Link from 'next/link'
+import { AuthTrigger } from '@/components/auth/auth-trigger'
 import { WalletIcon, TelegramIcon } from './icons'
 import { LogoMark } from './logo'
 import { TotalBets } from './total-bets'
 
 const SOCIALS = [
   // { label: 'Continue with Google', href: '#google', Icon: GoogleIcon },
-  { label: 'Continue with Telegram', href: '#telegram', Icon: TelegramIcon },
-  { label: 'Continue with Wallet', href: '#bch', Icon: WalletIcon },
+  { label: 'Continue with Telegram', view: 'telegram' as const, Icon: TelegramIcon },
+  { label: 'Continue with Wallet', view: 'wallet' as const, Icon: WalletIcon },
 ]
 
 export function Hero() {
@@ -45,15 +46,15 @@ export function Hero() {
           <span className="hidden text-base font-semibold text-white lg:inline">or</span>
 
           <div className="flex items-center gap-1.5">
-            {SOCIALS.map(({ label, href, Icon }) => (
-              <Link
+            {SOCIALS.map(({ label, view, Icon }) => (
+              <AuthTrigger
                 key={label}
-                href={href}
+                view={view}
                 aria-label={label}
-                className="flex h-[43px] w-[43px] items-center justify-center rounded-[10px] bg-[#151c2b] text-white transition [--icon-cut:#151c2b] hover:bg-[#1e2739] hover:[--icon-cut:#1e2739]"
+                className="flex h-[43px] w-[43px] cursor-pointer items-center justify-center rounded-[10px] bg-[#151c2b] text-white transition [--icon-cut:#151c2b] hover:bg-[#1e2739] hover:[--icon-cut:#1e2739]"
               >
                 <Icon className="h-[22px] w-[22px]" />
-              </Link>
+              </AuthTrigger>
             ))}
           </div>
         </div>

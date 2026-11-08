@@ -11,7 +11,12 @@ declare global {
   }
 }
 
-export function TelegramLogin({ botUsername }: { botUsername?: string }) {
+type TelegramLoginProps = {
+  botUsername?: string
+  onSuccess?: () => void
+}
+
+export function TelegramLogin({ botUsername, onSuccess }: TelegramLoginProps) {
   const router = useRouter()
   const containerRef = useRef<HTMLDivElement>(null)
   const [pending, setPending] = useState(false)
@@ -39,6 +44,7 @@ export function TelegramLogin({ botUsername }: { botUsername?: string }) {
         }
 
         router.refresh()
+        onSuccess?.()
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : 'Telegram sign-in failed.')
       } finally {
@@ -63,7 +69,7 @@ export function TelegramLogin({ botUsername }: { botUsername?: string }) {
       container.innerHTML = ''
       delete window.onTelegramAuth
     }
-  }, [botUsername, router])
+  }, [botUsername, onSuccess, router])
 
   if (!botUsername) {
     return (

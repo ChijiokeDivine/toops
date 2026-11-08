@@ -204,7 +204,13 @@ export async function verifyWalletChallenge(params: {
   const messageHash = hash256(preimage)
 
   const secp = await instantiateSecp256k1()
-  if (!secp.verifySignatureDER(signature, publicKey, messageHash)) return false
+  // Cashonize (and other WizardConnect wallets) produce 64-byte Schnorr
+  // signatures; legacy wallets may produce DER-encoded ECDSA. Accept both.
+  const signatureIsValid =
+    signature.length === 64
+      ? secp.verifySignatureSchnorr(signature, publicKey, messageHash)
+      : secp.verifySignatureDER(signature, publicKey, messageHash)
+  if (!signatureIsValid) return false
 
   const encoded = publicKeyToP2pkhCashAddress({
     publicKey,

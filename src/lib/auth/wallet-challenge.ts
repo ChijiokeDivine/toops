@@ -27,13 +27,28 @@ export type IssuedWalletChallenge = WalletChallenge & {
   expiresAt: Date
 }
 
+/**
+ * Removes one-time challenges that can no longer be verified. Used before issuing
+ * a new challenge and by the scheduled sync, so abandoned sign-ins do not linger.
+ */
+export async function cleanupExpiredWalletChallenges(): Promise<number> {
+  const result = await prisma.authChallenge.deleteMany({
+    where: { expiresAt: { lt: new Date() } },
+  })
+  return result.count
+}
+
 export async function issueWalletChallenge(rawAddress: string): Promise<IssuedWalletChallenge> {
   const address = normalizeCashAddress(rawAddress)
   if (!address) {
     throw new WalletChallengeError('Unsupported or invalid Bitcoin Cash address')
   }
 
-  await prisma.authChallenge.deleteMany({ where: { expiresAt: { lt: new Date() } } })
+  // Cleanup is best-effort: a stale pooled connection should never block a
+  // fresh sign-in attempt. Prisma reconnects on the next query.
+  await cleanupExpiredWalletChallenges().catch((error: unknown) => {
+    console.warn('wallet challenge cleanup failed', error)
+  })
 
   const nonce = randomBytes(16).toString('hex')
   const challenge = createWalletChallenge(address, nonce)

@@ -6,9 +6,10 @@ import {
   publicKeyToP2pkhCashAddress,
 } from '@bitauth/libauth'
 import type { DappConnectionManager } from '@wizardconnect/dapp'
-import { useWizardConnect, WizardConnectQRDialog } from '@wizardconnect/react'
+import { AlphanumericQRCode, useWizardConnect } from '@wizardconnect/react'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { CopyButton } from './copy-button'
 
 type ChallengeSourceOutput = {
   outpointIndex: number
@@ -31,6 +32,25 @@ type WalletChallengeResponse = {
 type WizardConnectLoginProps = {
   mode: 'sign-in' | 'link'
   onSuccess?: (address: string) => void
+}
+
+/** Cashonize normally responds in a few seconds; don't hang forever if the relay drops. */
+const SIGN_TIMEOUT_MS = 60_000
+
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error(message)), ms)
+    promise.then(
+      (value) => {
+        window.clearTimeout(timer)
+        resolve(value)
+      },
+      (error: unknown) => {
+        window.clearTimeout(timer)
+        reject(error)
+      },
+    )
+  })
 }
 
 function walletReceiveAddress(manager: DappConnectionManager): string {
@@ -119,8 +139,13 @@ export function WizardConnectLogin({ mode, onSuccess }: WizardConnectLoginProps)
           },
           inputPaths: [[0, 'receive', 0]] as [number, string, number][],
         }
-        const signed = await connection.signTransaction(
-          signRequest as unknown as Parameters<typeof connection.signTransaction>[0],
+
+        const signed = await withTimeout(
+          connection.signTransaction(
+            signRequest as unknown as Parameters<typeof connection.signTransaction>[0],
+          ),
+          SIGN_TIMEOUT_MS,
+          'Your wallet did not respond. Make sure it is unlocked and connected, then try again.',
         )
 
         if (!signed.signedTransaction) {
@@ -171,16 +196,36 @@ export function WizardConnectLogin({ mode, onSuccess }: WizardConnectLoginProps)
 
   return (
     <div className="space-y-3">
-      <WizardConnectQRDialog
-        show={Boolean(uri && qrUri && state === 'connecting')}
-        onClose={() => {
-          void disconnect()
-        }}
-        uri={uri ?? ''}
-        qrUri={qrUri ?? ''}
-        title="Connect a BCH wallet"
-        subtitle="Scan with Cashonize, Paytaca, or another WizardConnect wallet"
-      />
+      {uri && qrUri && state === 'connecting' && (
+        <div className="rounded-xl border border-[var(--t-border)] bg-[var(--t-bg)] p-4">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm font-semibold text-white">Scan with your wallet</p>
+            <CopyButton value={uri} label="Copy link" />
+          </div>
+          <div className="mt-3 flex justify-center rounded-lg bg-white p-3">
+            <AlphanumericQRCode
+              value={qrUri}
+              size={240}
+              foreground="#1e2a4a"
+              background="#ffffff"
+            />
+          </div>
+          <div className="mt-3 flex items-center justify-between gap-2">
+            <p className="text-xs text-[var(--t-muted)]">
+              Cashonize, Paytaca, or any WizardConnect wallet.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                void disconnect()
+              }}
+              className="shrink-0 cursor-pointer text-xs font-medium text-[var(--t-muted)] transition hover:text-white"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-2">
         <button

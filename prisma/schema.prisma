@@ -17,11 +17,20 @@ model User {
   telegramId       String? @unique
   telegramUsername String?
   telegramPhotoUrl String?
+  /// Optional profile email, editable from the profile page.
+  email            String? @unique
+  /// Profile avatar as a data URL (or a hosted URL later).
+  avatarUrl        String?
   /// Connected wallet address (used as the payout destination).
   bchAddress       String? @unique
 
   /// Off-chain game balance, in satoshis. Never derive this from chain state.
   balanceSats BigInt @default(0)
+
+  /// Lifetime XP earned from daily check-ins. Off-chain only.
+  xp                Int       @default(0)
+  xpStreak          Int       @default(0)
+  xpLastClaimedAt   DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -32,6 +41,23 @@ model User {
   deposits       Deposit[]
   withdrawals    Withdrawal[]
   ledgerEntries  LedgerEntry[]
+  xpClaims       XpClaim[]
+}
+
+/// One row per successful daily XP claim. The unique `(userId, dayKey)` pair is
+/// the database-level guard against double-claiming the same UTC day.
+model XpClaim {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount    Int
+  streak    Int
+  /// UTC calendar day, formatted as `YYYY-MM-DD`.
+  dayKey    String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, dayKey])
+  @@index([userId, createdAt])
 }
 
 /// One HD-derived deposit address per user. The master xpriv/xpub live in
