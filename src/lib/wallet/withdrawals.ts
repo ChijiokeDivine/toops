@@ -446,6 +446,10 @@ export async function withdraw(params: WithdrawalRequest): Promise<WithdrawalRes
     })
   })
 
+  // Set as soon as the transaction is on the network. The reservation must not
+  // be refunded after this point, even if recording the withdrawal fails.
+  let broadcastTxid: string | null = null
+
   try {
     if (payoutAsset === 'PUSD') {
       const built = await buildSignedTokenWithdrawal({
@@ -455,12 +459,12 @@ export async function withdraw(params: WithdrawalRequest): Promise<WithdrawalRes
         amountPusd,
         tokenId,
       })
-      const txid = await broadcastTransaction(built.rawTransactionHex)
+      broadcastTxid = await broadcastTransaction(built.rawTransactionHex)
       return await finalizeWithdrawal({
         withdrawalId: withdrawal.id,
         userId,
         payoutAsset,
-        txid,
+        txid: broadcastTxid,
         amountPusd,
         feePusd,
         amountSats: 0n,
@@ -480,12 +484,12 @@ export async function withdraw(params: WithdrawalRequest): Promise<WithdrawalRes
       toAddress: payoutAddress,
       amountSats,
     })
-    const txid = await broadcastTransaction(built.rawTransactionHex)
+    broadcastTxid = await broadcastTransaction(built.rawTransactionHex)
     return await finalizeWithdrawal({
       withdrawalId: withdrawal.id,
       userId,
       payoutAsset,
-      txid,
+      txid: broadcastTxid,
       amountPusd,
       feePusd,
       amountSats,
@@ -493,6 +497,16 @@ export async function withdraw(params: WithdrawalRequest): Promise<WithdrawalRes
       totalPusd,
     })
   } catch (error) {
+    if (broadcastTxid) {
+      // The payout left the platform. `finalizeWithdrawal` already recorded
+      // the broadcast and the error; never refund in this case.
+      if (error instanceof WithdrawalError) throw error
+      throw new WithdrawalError(
+        `Transaction ${broadcastTxid} was broadcast but could not be recorded. Contact support.`,
+        500,
+      )
+    }
+
     // Nothing reached the network: restore the reservation and mark the
     // attempt as failed.
     await prisma.$transaction(async (tx) => {

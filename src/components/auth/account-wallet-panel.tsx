@@ -170,7 +170,7 @@ export function AccountWalletPanel({
               {balancePusd} <span className="text-sm font-medium text-[var(--t-muted)]">PUSD</span>
             </p>
             <p className="text-xs text-[var(--t-muted)]">
-              ParyonUSD stablecoin, redeemable for the BCH that backs it.
+              ParyonUSD stablecoin, redeemable for BCH.
             </p>
           </div>
 
@@ -185,7 +185,7 @@ export function AccountWalletPanel({
             <p className="mt-2 text-xs text-[var(--t-muted)]">
               Send <span className="text-white">PUSD</span> or{' '}
               <span className="text-white">BCH</span> to this address. BCH deposits are
-              automatically swapped to PUSD. Use a CashTokens-aware wallet for PUSD.
+              automatically swapped to PUSD. 
             </p>
             <div className="mt-3 flex items-center justify-between gap-2">
               <button
@@ -202,22 +202,7 @@ export function AccountWalletPanel({
                 </p>
               )}
             </div>
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[var(--t-border)] pt-2.5">
-              <a
-                href={PARYON_APP_URL}
-                target="_blank"
-                rel="noreferrer"
-                className="text-xs font-medium text-[var(--t-green)] hover:underline"
-              >
-                Need PUSD? Mint it on Paryon ↗
-              </a>
-              <span
-                className="max-w-[52%] truncate font-mono text-[10px] text-[var(--t-muted)]"
-                title={pusdTokenId}
-              >
-                Token {shortenAddress(pusdTokenId)}
-              </span>
-            </div>
+           
           </div>
         </div>
       ) : (

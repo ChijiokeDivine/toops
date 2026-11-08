@@ -128,7 +128,7 @@ function HowItWorks() {
           <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-[#ffd21a]/15 text-[10px] font-bold text-[#ffd21a]">
             4
           </span>
-          XP is stored on your toops account and is separate from your BCH balance.
+          XP is stored on your toops account and is separate from your PUSD balance.
         </li>
       </ul>
     </section>
@@ -192,7 +192,7 @@ function SignedOut() {
       <h2 className="mt-4 text-2xl font-semibold text-white">Sign in to start earning XP</h2>
       <p className="mx-auto mt-2 max-w-md text-sm text-[var(--t-muted)]">
         Claim daily XP, build a streak, and level up. XP lives on your toops account and does not
-        touch your BCH balance.
+        touch your PUSD balance.
       </p>
       <div className="mt-6 flex flex-wrap justify-center gap-2">
         <AuthTrigger

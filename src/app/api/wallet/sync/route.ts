@@ -23,8 +23,8 @@ export async function POST() {
   }
 
   try {
-    const [result, user, rate] = await Promise.all([
-      syncUserDeposits(session.userId),
+    const result = await syncUserDeposits(session.userId)
+    const [user, rate] = await Promise.all([
       prisma.user.findUniqueOrThrow({
         where: { id: session.userId },
         select: { balancePusd: true },
