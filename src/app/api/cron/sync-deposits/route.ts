@@ -39,7 +39,8 @@ export async function GET(request: Request) {
       users: result.users,
       scannedUsers: result.scannedUsers,
       newDeposits: result.newDeposits,
-      creditedSats: result.creditedSats.toString(),
+      creditedPusd: result.creditedPusd.toString(),
+      swappedDeposits: result.swappedDeposits,
       errors: result.errors,
       expiredChallengesDeleted,
     })

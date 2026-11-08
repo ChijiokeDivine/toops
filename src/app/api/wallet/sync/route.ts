@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth/session'
 import { prisma } from '@/lib/db'
-import { formatPusdUnits, satsToPusdUnits } from '@/lib/pusd'
-import { getPusdSatsPerPusd } from '@/lib/pusd-server'
+import { formatPusdUnits } from '@/lib/pusd'
+import { getPusdRate } from '@/lib/pusd-server'
 import { syncUserDeposits } from '@/lib/wallet/deposits'
 
 export const runtime = 'nodejs'
@@ -23,22 +23,25 @@ export async function POST() {
   }
 
   try {
-    const result = await syncUserDeposits(session.userId)
-    const user = await prisma.user.findUniqueOrThrow({
-      where: { id: session.userId },
-      select: { balanceSats: true },
-    })
-    const satsPerPusd = getPusdSatsPerPusd()
+    const [result, user, rate] = await Promise.all([
+      syncUserDeposits(session.userId),
+      prisma.user.findUniqueOrThrow({
+        where: { id: session.userId },
+        select: { balancePusd: true },
+      }),
+      getPusdRate(),
+    ])
 
     return NextResponse.json({
       ok: true,
       newDeposits: result.newDeposits,
-      creditedSats: result.creditedSats.toString(),
-      creditedPusd: formatPusdUnits(satsToPusdUnits(result.creditedSats, satsPerPusd)),
+      creditedPusd: formatPusdUnits(result.creditedPusd),
+      swappedDeposits: result.swappedDeposits,
       scannedTransactions: result.scannedTransactions,
-      balanceSats: user.balanceSats.toString(),
-      balancePusd: formatPusdUnits(satsToPusdUnits(user.balanceSats, satsPerPusd)),
-      satsPerPusd: satsPerPusd.toString(),
+      errors: result.errors,
+      balancePusd: formatPusdUnits(user.balancePusd),
+      satsPerPusd: rate.satsPerPusd.toString(),
+      bchUsdPrice: rate.bchUsdPrice,
     })
   } catch (error) {
     console.error('deposit sync failed', error)

@@ -2,7 +2,10 @@ import Link from 'next/link'
 import { AccountNav } from '@/components/account/account-nav'
 import { AuthTrigger } from '@/components/auth/auth-trigger'
 import { getSession } from '@/lib/auth/session'
-import { getPusdSatsPerPusd } from '@/lib/pusd-server'
+import { formatPusdUnits } from '@/lib/pusd'
+import { getPusdRate, getPusdTokenId } from '@/lib/pusd-server'
+import { getMinimumWithdrawalPusd, getWithdrawalFeePusd } from '@/lib/wallet/withdrawals'
+import { getPlatformTokenAddress } from '@/lib/wallet/platform-wallet'
 import { utcDayKey } from '@/lib/xp'
 import { KingOfTheHill } from './king-of-the-hill'
 import { Logo } from './logo'
@@ -24,6 +27,16 @@ export async function SiteHeader() {
   const claimAvailable = Boolean(
     user && (!user.xpLastClaimedAt || utcDayKey(user.xpLastClaimedAt) !== utcDayKey(new Date())),
   )
+  const rate = user ? await getPusdRate() : null
+  const platformAddress = user?.platformWallet?.address ?? null
+  let depositTokenAddress: string | null = null
+  if (platformAddress) {
+    try {
+      depositTokenAddress = getPlatformTokenAddress(platformAddress)
+    } catch {
+      depositTokenAddress = null
+    }
+  }
 
   return (
     <header className="sticky top-0 z-40 border-b border-[var(--t-border)] bg-[rgba(8,13,23,0.92)] backdrop-blur-md">
@@ -51,15 +64,17 @@ export async function SiteHeader() {
               imageUrl={user.avatarUrl ?? user.telegramPhotoUrl}
               xp={user.xp}
               claimAvailable={claimAvailable}
-              balanceSats={user.balanceSats.toString()}
-              platformAddress={user.platformWallet?.address ?? null}
+              balancePusd={formatPusdUnits(user.balancePusd)}
+              platformAddress={platformAddress}
+              depositTokenAddress={depositTokenAddress}
+              pusdTokenId={getPusdTokenId()}
               network={
                 user.platformWallet?.network ??
                 (process.env.BCH_NETWORK === 'mainnet' ? 'mainnet' : 'chipnet')
               }
               connectedAddress={user.bchAddress}
-              withdrawalFeeSats={process.env.WITHDRAWAL_FEE_SATS ?? '1000'}
-              pusdSatsPerUnit={getPusdSatsPerPusd().toString()}
+              withdrawalFeePusd={rate ? formatPusdUnits(getWithdrawalFeePusd(rate)) : '0.00'}
+              minimumWithdrawalPusd={formatPusdUnits(getMinimumWithdrawalPusd())}
             />
           ) : (
             <div className="flex items-center gap-2">

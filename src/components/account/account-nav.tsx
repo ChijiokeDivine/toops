@@ -22,12 +22,14 @@ type AccountNavProps = {
   imageUrl: string | null
   xp: number
   claimAvailable: boolean
-  balanceSats: string
+  balancePusd: string
   platformAddress: string | null
+  depositTokenAddress: string | null
+  pusdTokenId: string
   network: string
   connectedAddress: string | null
-  withdrawalFeeSats: string
-  pusdSatsPerUnit: string
+  withdrawalFeePusd: string
+  minimumWithdrawalPusd: string
 }
 
 type MenuName = 'profile' | 'notifications' | null
@@ -65,11 +67,14 @@ export function AccountNav({
   imageUrl,
   xp,
   claimAvailable,
-  balanceSats,
+  balancePusd,
   platformAddress,
+  depositTokenAddress,
+  pusdTokenId,
   network,
   connectedAddress,
-  withdrawalFeeSats,
+  withdrawalFeePusd,
+  minimumWithdrawalPusd,
 }: AccountNavProps) {
   const router = useRouter()
   const containerRef = useRef<HTMLDivElement>(null)
@@ -289,10 +294,13 @@ export function AccountNav({
         identity={identity}
         imageUrl={imageUrl}
         network={network}
-        balanceSats={balanceSats}
+        balancePusd={balancePusd}
         platformAddress={platformAddress}
+        depositTokenAddress={depositTokenAddress}
+        pusdTokenId={pusdTokenId}
         connectedAddress={connectedAddress}
-        withdrawalFeeSats={withdrawalFeeSats}
+        withdrawalFeePusd={withdrawalFeePusd}
+        minimumWithdrawalPusd={minimumWithdrawalPusd}
       />
     </div>
   )

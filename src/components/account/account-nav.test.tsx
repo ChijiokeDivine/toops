@@ -14,11 +14,14 @@ const props = {
   imageUrl: null,
   xp: 120,
   claimAvailable: true,
-  balanceSats: '123456',
+  balancePusd: '1234.56',
   platformAddress: 'bchtest:qtestaddress',
+  depositTokenAddress: null,
+  pusdTokenId: 'dfe50223c8d5cba8dcef8dff6d92b61deb88a8ba44947367f2b746487b56039b',
   network: 'chipnet',
   connectedAddress: 'bchtest:qpayoutaddress',
-  withdrawalFeeSats: '1000',
+  withdrawalFeePusd: '0.04',
+  minimumWithdrawalPusd: '100.00',
 }
 
 describe('AccountNav', () => {
@@ -41,6 +44,7 @@ describe('AccountNav', () => {
     expect(screen.getByRole('tab', { name: 'Withdraw' })).toBeInTheDocument()
     expect(screen.getByText('Deposit address')).toBeInTheDocument()
     expect(screen.getByText('bchtest:qtestaddress')).toBeInTheDocument()
+    expect(screen.getByText('1234.56')).toBeInTheDocument()
   })
 
   it('switches the wallet dialog to the withdraw tab', () => {
@@ -50,7 +54,8 @@ describe('AccountNav', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'Wallet' }))
     fireEvent.click(screen.getByRole('tab', { name: 'Withdraw' }))
 
-    expect(screen.getByText('Amount (sats)')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Withdraw' })).toBeInTheDocument()
+    expect(screen.getByText('Amount (PUSD)')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Withdraw in PUSD' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'BCH' })).toBeInTheDocument()
   })
 })

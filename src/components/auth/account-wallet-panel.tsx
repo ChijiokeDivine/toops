@@ -2,24 +2,24 @@
 
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
+import type { PayoutAsset } from '@/lib/pusd'
 import { CopyButton } from './copy-button'
 
 type AccountWalletPanelProps = {
-  balanceSats: string
+  balancePusd: string
   platformAddress: string
+  depositTokenAddress: string | null
+  pusdTokenId: string
   connectedAddress: string | null
-  withdrawalFeeSats: string
+  withdrawalFeePusd: string
+  minimumWithdrawalPusd: string
   /** Close the popup and open the auth popup in wallet-linking mode. */
   onLinkWallet: () => void
 }
 
 type WalletTab = 'wallet' | 'withdraw'
 
-function formatBch(sats: bigint): string {
-  const whole = sats / 100_000_000n
-  const fraction = (sats % 100_000_000n).toString().padStart(8, '0')
-  return `${whole}.${fraction}`
-}
+const PARYON_APP_URL = 'https://paryonusd.com/app'
 
 function shortenAddress(address: string): string {
   return address.length > 30 ? `${address.slice(0, 14)}…${address.slice(-8)}` : address
@@ -33,20 +33,29 @@ async function readError(response: Response, fallback: string): Promise<string> 
 const card = 'rounded-2xl border border-[var(--t-border)] bg-[var(--t-bg)]/60 p-4'
 const label = 'text-[11px] uppercase tracking-wide text-[var(--t-muted)]'
 
+const payoutOptions: Array<{ value: PayoutAsset; label: string; hint: string }> = [
+  { value: 'PUSD', label: 'PUSD', hint: 'Receive PUSD tokens' },
+  { value: 'BCH', label: 'BCH', hint: 'Swap to BCH at payout' },
+]
+
 export function AccountWalletPanel({
-  balanceSats,
+  balancePusd,
   platformAddress,
+  depositTokenAddress,
+  pusdTokenId,
   connectedAddress,
-  withdrawalFeeSats,
+  withdrawalFeePusd,
+  minimumWithdrawalPusd,
   onLinkWallet,
 }: AccountWalletPanelProps) {
   const router = useRouter()
-  const balance = BigInt(balanceSats)
+  const depositAddress = depositTokenAddress ?? platformAddress
 
   const [tab, setTab] = useState<WalletTab>('wallet')
   const [syncing, setSyncing] = useState(false)
   const [syncMessage, setSyncMessage] = useState<string | null>(null)
   const [amount, setAmount] = useState('')
+  const [payoutAsset, setPayoutAsset] = useState<PayoutAsset>('PUSD')
   const [withdrawing, setWithdrawing] = useState(false)
   const [withdrawMessage, setWithdrawMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -64,14 +73,16 @@ export function AccountWalletPanel({
 
       const data = (await response.json()) as {
         newDeposits: number
-        creditedSats: string
-        balanceSats: string
+        creditedPusd: string
+        swappedDeposits: number
       }
-      setSyncMessage(
-        data.newDeposits > 0
-          ? `Credited ${data.newDeposits} deposit(s).`
-          : 'No new deposits found.',
-      )
+      if (data.newDeposits > 0) {
+        const swapped =
+          data.swappedDeposits > 0 ? ` (${data.swappedDeposits} swapped BCH → PUSD)` : ''
+        setSyncMessage(`Credited ${data.creditedPusd} PUSD${swapped}.`)
+      } else {
+        setSyncMessage('No new deposits found.')
+      }
       router.refresh()
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Unable to scan for deposits.')
@@ -90,14 +101,23 @@ export function AccountWalletPanel({
       const response = await fetch('/api/wallet/withdraw', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amountSats: amount.trim() }),
+        body: JSON.stringify({
+          amountPusd: amount.trim().replace(',', '.'),
+          payoutAsset,
+        }),
       })
       if (!response.ok) {
         throw new Error(await readError(response, 'Withdrawal failed.'))
       }
 
-      const data = (await response.json()) as { txid: string; amountSats: string; feeSats: string }
-      setWithdrawMessage(`Sent ${data.amountSats} sats · ${shortenAddress(data.txid)}`)
+      const data = (await response.json()) as {
+        txid: string
+        payoutAsset: PayoutAsset
+        amountPusd: string
+      }
+      setWithdrawMessage(
+        `Sent ${data.amountPusd} PUSD as ${data.payoutAsset} · ${shortenAddress(data.txid)}`,
+      )
       setAmount('')
       router.refresh()
     } catch (cause) {
@@ -147,20 +167,26 @@ export function AccountWalletPanel({
           <div className={card}>
             <p className={label}>Balance</p>
             <p className="mt-1 text-3xl font-semibold text-white">
-              {formatBch(balance)}{' '}
-              <span className="text-sm font-medium text-[var(--t-muted)]">BCH</span>
+              {balancePusd} <span className="text-sm font-medium text-[var(--t-muted)]">PUSD</span>
             </p>
-            <p className="text-xs text-[var(--t-muted)]">{balance.toString()} sats</p>
+            <p className="text-xs text-[var(--t-muted)]">
+              ParyonUSD stablecoin, redeemable for the BCH that backs it.
+            </p>
           </div>
 
           <div className={card}>
             <p className={label}>Deposit address</p>
             <div className="mt-2 flex items-center gap-2">
               <code className="min-w-0 flex-1 break-all rounded-lg bg-[var(--t-surface-2)] px-2.5 py-2 font-mono text-xs text-[var(--t-green)]">
-                {platformAddress}
+                {depositAddress}
               </code>
-              <CopyButton value={platformAddress} label="Copy" />
+              <CopyButton value={depositAddress} label="Copy" />
             </div>
+            <p className="mt-2 text-xs text-[var(--t-muted)]">
+              Send <span className="text-white">PUSD</span> or{' '}
+              <span className="text-white">BCH</span> to this address. BCH deposits are
+              automatically swapped to PUSD. Use a CashTokens-aware wallet for PUSD.
+            </p>
             <div className="mt-3 flex items-center justify-between gap-2">
               <button
                 type="button"
@@ -175,6 +201,22 @@ export function AccountWalletPanel({
                   {syncMessage}
                 </p>
               )}
+            </div>
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[var(--t-border)] pt-2.5">
+              <a
+                href={PARYON_APP_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs font-medium text-[var(--t-green)] hover:underline"
+              >
+                Need PUSD? Mint it on Paryon ↗
+              </a>
+              <span
+                className="max-w-[52%] truncate font-mono text-[10px] text-[var(--t-muted)]"
+                title={pusdTokenId}
+              >
+                Token {shortenAddress(pusdTokenId)}
+              </span>
             </div>
           </div>
         </div>
@@ -200,26 +242,56 @@ export function AccountWalletPanel({
 
           <form onSubmit={handleWithdraw} className={card}>
             <label className="block">
-              <span className={label}>Amount (sats)</span>
-              <input
-                value={amount}
-                onChange={(event) => setAmount(event.target.value)}
-                inputMode="numeric"
-                pattern="[0-9]*"
-                placeholder="100000"
-                className="mt-1.5 w-full rounded-lg border border-[var(--t-border)] bg-[var(--t-surface-2)] px-3 py-2 font-mono text-sm text-white outline-none focus:border-[var(--t-green)]"
-              />
+              <span className={label}>Amount (PUSD)</span>
+              <div className="mt-1.5 flex items-center rounded-lg border border-[var(--t-border)] bg-[var(--t-surface-2)] pl-3 focus-within:border-[var(--t-green)]">
+                <input
+                  value={amount}
+                  onChange={(event) => setAmount(event.target.value)}
+                  inputMode="decimal"
+                  placeholder="10.00"
+                  className="min-w-0 flex-1 bg-transparent py-2 font-mono text-sm text-white outline-none"
+                />
+                <span className="pr-3 text-xs text-[var(--t-muted)]">PUSD</span>
+              </div>
             </label>
+
+            <fieldset className="mt-3">
+              <legend className={label}>Receive as</legend>
+              <div className="mt-1.5 grid grid-cols-2 gap-1 rounded-lg border border-[var(--t-border)] bg-[var(--t-surface-2)] p-1">
+                {payoutOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    aria-pressed={payoutAsset === option.value}
+                    title={option.hint}
+                    onClick={() => setPayoutAsset(option.value)}
+                    className={`cursor-pointer rounded-md px-3 py-1.5 text-sm font-semibold transition ${
+                      payoutAsset === option.value
+                        ? 'bg-[var(--t-green)] text-black'
+                        : 'text-[var(--t-muted)] hover:text-white'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+
             <button
               type="submit"
               disabled={withdrawing || !connectedAddress || !amount.trim()}
               className="mt-3 w-full rounded-lg bg-[var(--t-green)] px-4 py-2 text-sm font-semibold text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {withdrawing ? 'Sending…' : 'Withdraw'}
+              {withdrawing ? 'Sending…' : `Withdraw in ${payoutAsset}`}
             </button>
             <p className="mt-2 text-xs text-[var(--t-muted)]">
-              Network fee: {withdrawalFeeSats} sats
+              Fee: {withdrawalFeePusd} PUSD · Minimum: {minimumWithdrawalPusd} PUSD
             </p>
+            {payoutAsset === 'BCH' && (
+              <p className="mt-1 text-xs text-[var(--t-muted)]">
+                BCH payouts are swapped from PUSD at the current Cauldron rate.
+              </p>
+            )}
             {!connectedAddress && (
               <p className="mt-1.5 text-xs text-[var(--t-gold)]">Connect a payout wallet first.</p>
             )}

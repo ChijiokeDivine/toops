@@ -1,26 +1,10 @@
 import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth/session'
-import {
-  MIN_WITHDRAWAL_SATS,
-  WithdrawalError,
-  withdrawToLinkedWallet,
-} from '@/lib/wallet/withdrawals'
+import { formatPusdUnits, parsePayoutAsset, parsePusdInput } from '@/lib/pusd'
+import { WithdrawalError, withdraw } from '@/lib/wallet/withdrawals'
 import { PlatformWalletConfigError, platformWalletErrorMessage } from '@/lib/wallet/platform-wallet'
-import { formatPusdUnits, parsePusdInput, pusdUnitsToSats, satsToPusdUnits } from '@/lib/pusd'
-import { getPusdSatsPerPusd } from '@/lib/pusd-server'
 
 export const runtime = 'nodejs'
-
-function parseAmount(value: unknown): bigint | null {
-  if (typeof value === 'bigint') return value
-  if (typeof value === 'number' && Number.isSafeInteger(value) && value > 0) {
-    return BigInt(value)
-  }
-  if (typeof value === 'string' && /^\d+$/.test(value.trim())) {
-    return BigInt(value.trim())
-  }
-  return null
-}
 
 export async function POST(request: Request) {
   const session = await getSession()
@@ -33,51 +17,32 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 })
   }
 
-  const { amountPusd, amountSats, address } = body as Record<string, unknown>
-  const satsPerPusd = getPusdSatsPerPusd()
+  const { amountPusd, payoutAsset: rawPayoutAsset, address } = body as Record<string, unknown>
 
-  let amount: bigint | null
-  if (amountPusd !== undefined && amountPusd !== null) {
-    const rawAmount =
-      typeof amountPusd === 'string'
-        ? amountPusd
-        : typeof amountPusd === 'number'
-          ? String(amountPusd)
-          : null
-    const units = rawAmount === null ? null : parsePusdInput(rawAmount)
-    if (units === null) {
-      return NextResponse.json(
-        { error: 'A positive PUSD amount (at most 2 decimals) is required.' },
-        { status: 400 },
-      )
-    }
-    amount = pusdUnitsToSats(units, satsPerPusd)
-  } else {
-    // Backwards-compatible satoshi input for API clients written before PUSD.
-    amount = parseAmount(amountSats)
-    if (amount === null) {
-      return NextResponse.json(
-        { error: 'A positive PUSD amount is required.' },
-        { status: 400 },
-      )
-    }
-  }
-
-  if (amount < MIN_WITHDRAWAL_SATS) {
+  const amountInput =
+    typeof amountPusd === 'string'
+      ? amountPusd
+      : typeof amountPusd === 'number'
+        ? String(amountPusd)
+        : null
+  const amount = amountInput === null ? null : parsePusdInput(amountInput)
+  if (amount === null) {
     return NextResponse.json(
-      {
-        error: `Minimum withdrawal is ${formatPusdUnits(
-          satsToPusdUnits(MIN_WITHDRAWAL_SATS, satsPerPusd),
-        )} PUSD.`,
-      },
+      { error: 'A positive PUSD amount (at most 2 decimals) is required.' },
       { status: 400 },
     )
   }
 
+  const payoutAsset = parsePayoutAsset(rawPayoutAsset)
+  if (!payoutAsset) {
+    return NextResponse.json({ error: 'Choose a payout asset: PUSD or BCH.' }, { status: 400 })
+  }
+
   try {
-    const result = await withdrawToLinkedWallet({
+    const result = await withdraw({
       userId: session.userId,
-      amountSats: amount,
+      amountPusd: amount,
+      payoutAsset,
       requestedAddress: typeof address === 'string' ? address : undefined,
     })
 
@@ -85,11 +50,11 @@ export async function POST(request: Request) {
       ok: true,
       id: result.id,
       txid: result.txid,
+      payoutAsset: result.payoutAsset,
+      amountPusd: formatPusdUnits(result.amountPusd),
+      feePusd: formatPusdUnits(result.feePusd),
       amountSats: result.amountSats.toString(),
       feeSats: result.feeSats.toString(),
-      amountPusd: formatPusdUnits(satsToPusdUnits(result.amountSats, satsPerPusd)),
-      feePusd: formatPusdUnits(satsToPusdUnits(result.feeSats, satsPerPusd)),
-      satsPerPusd: satsPerPusd.toString(),
     })
   } catch (error) {
     if (error instanceof WithdrawalError) {

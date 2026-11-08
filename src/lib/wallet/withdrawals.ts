@@ -18,6 +18,7 @@ import { normalizeCashAddress, toTokenAwareAddress } from '@/lib/bch/address'
 import {
   formatPusdUnits,
   parsePayoutAsset,
+  parsePusdInput,
   pusdUnitsToSats,
   satsToPusdUnitsCeil,
   type PayoutAsset,
@@ -50,9 +51,8 @@ export function getWithdrawalFeePusd(rate: PusdRate): bigint {
 }
 
 export function getMinimumWithdrawalPusd(): bigint {
-  const configured = Number(process.env.MIN_WITHDRAWAL_PUSD ?? '100')
-  const units = Number.isFinite(configured) && configured > 0 ? Math.floor(configured) : 100
-  return BigInt(units)
+  const configured = parsePusdInput(process.env.MIN_WITHDRAWAL_PUSD ?? '1')
+  return configured ?? 100n
 }
 
 function p2pkhLockingBytecode(address: string): Uint8Array {
@@ -190,12 +190,6 @@ export async function buildSignedWithdrawal(params: {
   }
 }
 
-type TokenOutput = {
-  lockingBytecode: Uint8Array
-  valueSatoshis: bigint
-  token: { category: Uint8Array; amount: bigint }
-}
-
 export type BuiltTokenWithdrawal = BuiltWithdrawal & {
   tokenInputAmount: bigint
   tokenChangeAmount: bigint
@@ -253,9 +247,7 @@ export async function buildSignedTokenWithdrawal(params: {
 
   let inputSats = selected.reduce((sum, utxo) => sum + BigInt(utxo.value), 0n)
   let feeSats = estimateTokenTransactionFee(selected.length, tokenOutputCount)
-  const bchUtxos = utxos
-    .filter((utxo) => !utxo.token)
-    .sort((a, b) => b.value - a.value)
+  const bchUtxos = utxos.filter((utxo) => !utxo.token).sort((a, b) => b.value - a.value)
 
   // Top up dust + miner fee from plain BCH outputs at the same address.
   for (const utxo of bchUtxos) {

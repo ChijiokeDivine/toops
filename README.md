@@ -58,6 +58,12 @@ DIRECT_URL="postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabas
 PLATFORM_WALLET_XPRIV=
 PLATFORM_WALLET_XPUB=
 WITHDRAWAL_FEE_SATS=1000
+PUSD_TOKEN_ID=
+PUSD_DECIMALS=2
+PUSD_DUST_SATS=1000
+PARYON_API_URL=
+BCH_USD_PRICE=
+MIN_WITHDRAWAL_PUSD=1
 CRON_SECRET=
 ```
 
@@ -110,12 +116,23 @@ node -e "import('@bitauth/libauth').then(m => {
 
 > **Back up the master key.** Losing it makes every platform deposit address unspendable. Never reuse the chipnet key on mainnet; generate a fresh mainnet pair (xprv/xpub) before launch.
 
+### PUSD ledger
+
+Balances are denominated in **PUSD** (ParyonUSD), a 2-decimal CashToken on BCH. Users never see the underlying BCH balance: BCH is only the settlement/fee asset.
+
+- **Live chipnet token:** deployment `chipnet-16`, category `dfe50223c8d5cba8dcef8dff6d92b61deb88a8ba44947367f2b746487b56039b`. On mainnet the default category is `2469acc5afa4b10cb5b5c04afb89c3a3ffd61c5da9c01e26d00951cae2a02544`. Override with `PUSD_TOKEN_ID`.
+- **Rate source:** the Paryon oracle/stats API (`PARYON_API_URL`, default `https://chipnet-16.paryonusd.com`) supplies `bchUsdPrice`; the app derives `satsPerPusd`. `BCH_USD_PRICE` is an optional offline fallback.
+- **Ledger fields:** `User.balancePusd`, `Deposit.amountPusd`/`swapTxid`, `Withdrawal.amountPusd`/`feePusd`/`payoutAsset`, and `LedgerEntry.amountPusd`/`balanceAfterPusd`, all in PUSD base units. Legacy satoshi columns are retained but deprecated.
+- **Unit helpers:** `src/lib/pusd.ts` (pure, client-safe) and `src/lib/pusd-server.ts` (token config + oracle).
+
 ### Deposits and withdrawals
 
-- **Deposits:** `POST /api/wallet/sync` scans the signed-in user's deposit address over Electrum WSS (`blockchain.scripthash.get_history` + `blockchain.transaction.get`), credits confirmed P2PKH outputs to `User.balanceSats`, and appends a `LedgerEntry`. The unique `(txid, vout)` index makes the credit idempotent.
+- **PUSD deposits:** send PUSD to the user's deposit address (token-aware P2PKH). `POST /api/wallet/sync` detects the fungible token outputs for the configured category and credits them 1:1.
+- **BCH deposits:** BCH sent to the same address is swapped to PUSD through **Cauldron** (`@mr-zwets/cauldron-swap-sdk`) before crediting. Deposits below `MIN_SWAP_SATS` (50,000 sats) are credited at the oracle rate and retained as the BCH payout reserve. Swaps only move funds already received at the platform deposit address.
+- **Sync:** `POST /api/wallet/sync` scans the signed-in user's address over Electrum WSS (`blockchain.scripthash.get_history` + `blockchain.transaction.get`), credits confirmed outputs, and appends a `LedgerEntry`. The unique `(txid, vout)` index makes the credit idempotent.
 - **Bulk sync:** `GET /api/cron/sync-deposits` scans a batch of wallets. Protect it with `CRON_SECRET` (`Authorization: Bearer <secret>` or `x-cron-secret`), and schedule it with Vercel Cron.
-- **Withdrawals:** `POST /api/wallet/withdraw` can only pay the wallet address linked to the account. It reserves the amount with a conditional balance decrement, builds and signs the transaction, broadcasts it, records the `Withdrawal`, and refunds the reservation if the broadcast fails.
-- **Minimum / fee:** the minimum withdrawal is 1000 sats. `WITHDRAWAL_FEE_SATS` sets the fee floor; the builder raises it when the estimated transaction size requires more.
+- **Withdrawals:** `POST /api/wallet/withdraw` takes `{ amountPusd, payoutAsset }`, where `payoutAsset` is `PUSD` (CashToken transfer) or `BCH` (converted at the oracle rate and paid from the BCH reserve). It can only pay the wallet address linked to the account. The PUSD amount plus fee is reserved with a conditional decrement before broadcast and refunded if the broadcast fails.
+- **Minimum / fee:** `MIN_WITHDRAWAL_PUSD` (default `1`) sets the minimum. `WITHDRAWAL_FEE_SATS` sets the BCH network-fee floor; the builder raises it when the estimated transaction size requires more, and the equivalent is charged in PUSD.
 
 ### XP and daily check-ins
 

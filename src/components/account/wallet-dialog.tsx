@@ -13,10 +13,13 @@ type WalletDialogProps = {
   identity: string
   imageUrl: string | null
   network: string
-  balanceSats: string
+  balancePusd: string
   platformAddress: string | null
+  depositTokenAddress: string | null
+  pusdTokenId: string
   connectedAddress: string | null
-  withdrawalFeeSats: string
+  withdrawalFeePusd: string
+  minimumWithdrawalPusd: string
 }
 
 const FOCUSABLE =
@@ -40,10 +43,13 @@ export function WalletDialog({
   identity,
   imageUrl,
   network,
-  balanceSats,
+  balancePusd,
   platformAddress,
+  depositTokenAddress,
+  pusdTokenId,
   connectedAddress,
-  withdrawalFeeSats,
+  withdrawalFeePusd,
+  minimumWithdrawalPusd,
 }: WalletDialogProps) {
   const panelRef = useRef<HTMLDivElement>(null)
 
@@ -159,10 +165,13 @@ export function WalletDialog({
         <div className="mt-4">
           {platformAddress ? (
             <AccountWalletPanel
-              balanceSats={balanceSats}
+              balancePusd={balancePusd}
               platformAddress={platformAddress}
+              depositTokenAddress={depositTokenAddress}
+              pusdTokenId={pusdTokenId}
               connectedAddress={connectedAddress}
-              withdrawalFeeSats={withdrawalFeeSats}
+              withdrawalFeePusd={withdrawalFeePusd}
+              minimumWithdrawalPusd={minimumWithdrawalPusd}
               onLinkWallet={handleLinkWallet}
             />
           ) : (
