@@ -29,6 +29,12 @@ model User {
   /// Legacy BCH balance in satoshis (pre-PUSD). Kept for historical rows only.
   balanceSats BigInt @default(0)
 
+  /// Provably-fair client seed for Dual Crash. Generated on first queue join.
+  clientSeed String?
+  /// Dual Crash match the user is currently in (waiting, countdown, or running).
+  /// Both players point at the same match id, so this is deliberately not unique.
+  activeMatchId String?
+
   /// Lifetime XP earned from daily check-ins. Off-chain only.
   xp                Int       @default(0)
   xpStreak          Int       @default(0)
@@ -44,6 +50,11 @@ model User {
   withdrawals    Withdrawal[]
   ledgerEntries  LedgerEntry[]
   xpClaims       XpClaim[]
+  dualTickets    DualTicket[]
+  dualMatchPlayers DualMatchPlayer[]
+  dualWins       DualMatch[] @relation("DualWinner")
+
+  @@index([activeMatchId])
 }
 
 /// One row per successful daily XP claim. The unique `(userId, dayKey)` pair is
@@ -197,4 +208,132 @@ model LedgerEntry {
   createdAt        DateTime   @default(now())
 
   @@index([userId, createdAt])
+}
+
+// ──────────────────────────────────────────────────────────
+// Dual Crash (two-player PvP crash)
+// ──────────────────────────────────────────────────────────
+
+enum DualMatchStatus {
+  /// Both players matched and stakes locked; waiting for both clients to load.
+  WAITING
+  /// Both players ready; the countdown to launch is running.
+  COUNTDOWN
+  /// Rocket is flying and cashouts are accepted.
+  RUNNING
+  /// Settlement transaction is in progress (short-lived internal state).
+  SETTLING
+  /// A winner was paid.
+  SETTLED
+  /// Round crashed with no cashouts; the same match replays automatically.
+  INTERMISSION
+  /// Match was cancelled and both stakes were refunded.
+  CANCELLED
+}
+
+/// A queued player waiting for an opponent at the exact same stake.
+/// Presence of this row means the stake has been locked and is waiting.
+model DualTicket {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stakePusd  BigInt
+  expiresAt  DateTime
+  lastSeenAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([stakePusd, expiresAt])
+}
+
+/// One two-player match. Both stakes are locked before this row is created.
+/// `round` increments when a crashed round with no cashouts auto-replays.
+model DualMatch {
+  id        String          @id @default(cuid())
+  status    DualMatchStatus @default(WAITING)
+
+  /// Each player's locked stake (equal).
+  stakePusd BigInt
+  /// stakePusd * 2.
+  potPusd   BigInt
+  /// 1% of the pot, taken when a winner is paid.
+  feePusd   BigInt @default(0)
+  /// Winner's credit (pot - fee).
+  payoutPusd BigInt @default(0)
+
+  winnerUserId String?
+  winner       User?   @relation("DualWinner", fields: [winnerUserId], references: [id], onDelete: SetNull)
+
+  /// Current round's random seed. Only exposed by the API after the round ends.
+  serverSeed     String
+  /// sha256(serverSeed), published before the round starts.
+  serverSeedHash String
+  /// Increments every round, including auto-replays.
+  nonce          Int    @default(0)
+  /// Hidden until the round ends. Integer hundredths of a multiplier (234 = 2.34x).
+  crashMultiplierX100 Int?
+  /// Round number within this match (1-based).
+  round          Int    @default(1)
+  /// How many automatic both-bust replays have happened.
+  replayCount    Int    @default(0)
+  /// Previous rounds, revealed after each one ends.
+  roundHistory   Json?
+
+  /// Set once both players are ready.
+  startsAt       DateTime?
+  /// Server-authoritative crash instant for the current round.
+  crashAt        DateTime?
+  /// When the both-bust intermission ends and the next round can start.
+  intermissionEndsAt DateTime?
+  /// If both players are not ready by this time, the match is cancelled/refunded.
+  readyDeadlineAt DateTime?
+  endedAt        DateTime?
+
+  /// Aggregate integrity marker; flipped to false if verification fails.
+  integrityOk    Boolean @default(true)
+
+  rematchOfId       String?
+  rematchCreatedAt  DateTime?
+  rematchDeclinedAt DateTime?
+
+  disputed      Boolean   @default(false)
+  disputeReason String?
+  disputeAt     DateTime?
+
+  players   DualMatchPlayer[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, readyDeadlineAt])
+  @@index([status, intermissionEndsAt])
+  @@index([winnerUserId])
+  @@index([createdAt])
+}
+
+model DualMatchPlayer {
+  id        String    @id @default(cuid())
+  matchId   String
+  match     DualMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// 0 or 1. Used only for stable display ordering.
+  seat      Int
+  stakePusd BigInt
+  /// Snapshot of the user's client seed at match creation.
+  clientSeed String
+
+  ready       Boolean  @default(false)
+  lastSeenAt  DateTime @default(now())
+
+  cashoutAt            DateTime?
+  cashoutMultiplierX100 Int?
+  payoutPusd           BigInt   @default(0)
+
+  rematchRequested   Boolean   @default(false)
+  rematchRequestedAt DateTime?
+
+  @@unique([matchId, userId])
+  @@unique([matchId, seat])
+  @@index([userId])
 }
