@@ -56,8 +56,8 @@ export function FairnessPanel({ clientSeed, match, busy, onRegenerate }: Fairnes
     <section className="dual-card p-4 sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg border border-[#00fa7f]/20 bg-[#00fa7f]/10 text-[#00fa7f]">
+          <div className="flex items-center gap-1">
+            <span className="flex h-9 w-9 items-center justify-center rounded-md">
               <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.9">
                 <path d="M12 3l7 3v5c0 4.4-2.9 8.2-7 10-4.1-1.8-7-5.6-7-10V6l7-3Z" strokeLinejoin="round" />
                 <path d="m9 12 2 2 4-4" strokeLinecap="round" strokeLinejoin="round" />
@@ -71,9 +71,7 @@ export function FairnessPanel({ clientSeed, match, busy, onRegenerate }: Fairnes
             the round ends.
           </p>
         </div>
-        <span className="rounded-full border border-[#00fa7f]/25 bg-[#00fa7f]/10 px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.16em] text-[#00fa7f]">
-          HMAC-SHA256
-        </span>
+  
       </div>
 
       <div className="mt-4 grid gap-3 lg:grid-cols-[1.15fr_1fr]">
@@ -190,12 +188,7 @@ export function FairnessPanel({ clientSeed, match, busy, onRegenerate }: Fairnes
         </div>
       </div>
 
-      <p className="mt-3 text-[10px] leading-relaxed text-[var(--t-muted)]">
-        Formula: <code className="text-white/55">HMAC-SHA256(serverSeed, sortedClientSeeds + &quot;:&quot; + nonce)</code>{' '}
-        → first 8 hex characters as <code className="text-white/55">h</code> →{' '}
-        <code className="text-white/55">2³² / (2³² − h)</code>, floored to two decimals and capped at
-        100,000x.
-      </p>
+     
     </section>
   )
 }

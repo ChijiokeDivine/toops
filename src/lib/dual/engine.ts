@@ -496,6 +496,21 @@ async function loadMatchForView(matchId: string): Promise<MatchWithPlayers | nul
   return prisma.dualMatch.findUnique({ where: { id: matchId }, include: MATCH_INCLUDE })
 }
 
+/**
+ * Heartbeats must take the match advisory lock before touching a player row.
+ * Otherwise a heartbeat that holds a row lock can deadlock with `markReady`,
+ * which holds the advisory lock and waits for the same row.
+ */
+async function touchPlayerHeartbeat(matchId: string, userId: string): Promise<void> {
+  await runTx(async (tx) => {
+    await acquireLock(tx, matchLockKey(matchId))
+    await tx.dualMatchPlayer.updateMany({
+      where: { matchId, userId },
+      data: { lastSeenAt: new Date() },
+    })
+  })
+}
+
 export async function getDualState(userId: string): Promise<DualStateResponse> {
   const initial = await prisma.user.findUnique({
     where: { id: userId },
@@ -511,10 +526,8 @@ export async function getDualState(userId: string): Promise<DualStateResponse> {
   if (!initial) throw new DualError('User not found.', 404, 'USER_NOT_FOUND')
 
   if (initial.activeMatchId) {
-    const now = new Date()
-    await prisma.dualMatchPlayer.updateMany({
-      where: { matchId: initial.activeMatchId, userId },
-      data: { lastSeenAt: now },
+    await touchPlayerHeartbeat(initial.activeMatchId, userId).catch((error) => {
+      console.error('[dual] heartbeat failed', initial.activeMatchId, error)
     })
     await advanceMatch(initial.activeMatchId).catch((error) => {
       console.error('[dual] advance failed', initial.activeMatchId, error)

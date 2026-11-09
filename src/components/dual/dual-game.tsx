@@ -351,17 +351,9 @@ export function DualGame() {
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#00fa7f]/25 bg-[#00fa7f]/10">
-              <svg viewBox="0 0 24 24" className="h-5 w-5 text-[#00fa7f]" fill="none" stroke="currentColor" strokeWidth="1.9">
-                <path d="M14 4c3 1 5 3 6 6l-5 2-4-4 3-4Z" strokeLinejoin="round" />
-                <path d="m11 8 5 5-4 4-5-5 4-4Z" strokeLinejoin="round" />
-                <path d="M7 14c-2 2-2 5-2 5s3 0 5-2M16 8l2-2" strokeLinecap="round" />
-              </svg>
-            </span>
+            
             <h1 className="text-2xl font-black tracking-tight text-white sm:text-3xl">Dual Crash</h1>
-            <span className="rounded-full border border-white/[0.08] bg-white/[0.03] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.16em] text-white/55">
-              2-player PvP
-            </span>
+           
             {match?.status === 'RUNNING' ? (
               <span className="flex items-center gap-1.5 rounded-full border border-[#00fa7f]/30 bg-[#00fa7f]/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.16em] text-[#00fa7f]">
                 <span className="dual-live-dot h-1.5 w-1.5 rounded-full bg-[#00fa7f]" />
