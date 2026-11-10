@@ -49,7 +49,11 @@ export function DualGame() {
 
   const refresh = useCallback(async (): Promise<DualStateResponse | null> => {
     try {
-      const response = await fetch('/api/dual/state', { cache: 'no-store' })
+      const response = await fetch('/api/dual/state', {
+        cache: 'no-store',
+        // A hanging request must not freeze the whole polling loop.
+        signal: AbortSignal.timeout(25_000),
+      })
       if (response.status === 401) {
         authRef.current = true
         setAuthRequired(true)
@@ -99,6 +103,7 @@ export function DualGame() {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ matchId: data.match.id }),
+              signal: AbortSignal.timeout(20_000),
             })
             if (!response.ok && !control.cancelled) readyKeyRef.current = null
           } catch {
@@ -149,6 +154,7 @@ export function DualGame() {
           body: JSON.stringify({ matchId }),
           cache: 'no-store',
           keepalive: true,
+          signal: AbortSignal.timeout(20_000),
         })
       } catch {
         // The next tick retries; a failed ping must never break the UI.
@@ -196,6 +202,7 @@ export function DualGame() {
           method,
           headers: body ? { 'Content-Type': 'application/json' } : undefined,
           body: body ? JSON.stringify(body) : undefined,
+          signal: AbortSignal.timeout(25_000),
         })
         const data = (await response.json().catch(() => null)) as
           Record<string, unknown> | { error?: string } | null

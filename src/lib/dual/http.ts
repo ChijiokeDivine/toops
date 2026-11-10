@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server'
-import { getSession } from '@/lib/auth/session'
+import { getSessionUserId } from '@/lib/auth/session'
 import { DualError } from './engine'
 
 export async function requireUserId(): Promise<string> {
-  const session = await getSession()
-  if (!session) {
+  const userId = await getSessionUserId()
+  if (!userId) {
     throw new DualError('Sign in to play Dual Crash.', 401, 'UNAUTHENTICATED')
   }
-  return session.userId
+  return userId
 }
 
 export function dualErrorResponse(error: unknown): NextResponse {

@@ -59,6 +59,29 @@ export async function getSession(): Promise<SessionWithUser | null> {
   return session
 }
 
+/**
+ * Resolves just the signed-in user id. Prefer this over `getSession` when the
+ * caller only needs identity: `getSession` also joins the user and their
+ * platform wallet, which is three round-trips on a slow database link.
+ */
+export async function getSessionUserId(): Promise<string | null> {
+  const token = (await cookies()).get(SESSION_COOKIE)?.value
+  if (!token) return null
+
+  const session = await prisma.session.findUnique({
+    where: { tokenHash: hashSessionToken(token) },
+    select: { id: true, userId: true, expiresAt: true },
+  })
+
+  if (!session) return null
+  if (session.expiresAt.getTime() <= Date.now()) {
+    await prisma.session.delete({ where: { id: session.id } }).catch(() => undefined)
+    return null
+  }
+
+  return session.userId
+}
+
 export async function destroyCurrentSession(): Promise<void> {
   const store = await cookies()
   const token = store.get(SESSION_COOKIE)?.value

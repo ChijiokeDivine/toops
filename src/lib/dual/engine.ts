@@ -756,7 +756,9 @@ export async function advanceMatch(matchId: string): Promise<boolean> {
       // fresh full countdown as soon as they check in. Only give up once the
       // launch watchdog has expired.
       if (match.players.some((player) => !isOnlineLite(player.lastSeenAt, now))) {
-        if (match.readyDeadlineAt && now.getTime() > match.readyDeadlineAt.getTime()) {
+        // A missing deadline can only come from a match that entered this phase
+        // before the hold was introduced; treat it as already expired.
+        if (!match.readyDeadlineAt || now.getTime() > match.readyDeadlineAt.getTime()) {
           return (await cancelMatch(matchId, 'Players did not load in time.')) || changed
         }
         const held = await holdCountdown(matchId, now)
@@ -786,7 +788,7 @@ export async function advanceMatch(matchId: string): Promise<boolean> {
       }
       if (match.players.length !== 2) return changed
       if (match.players.some((player) => !isOnlineLite(player.lastSeenAt, now))) {
-        if (match.readyDeadlineAt && now.getTime() > match.readyDeadlineAt.getTime()) {
+        if (!match.readyDeadlineAt || now.getTime() > match.readyDeadlineAt.getTime()) {
           return (
             (await cancelMatch(matchId, 'A player left during the replay intermission.')) || changed
           )
