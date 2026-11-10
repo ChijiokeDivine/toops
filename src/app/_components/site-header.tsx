@@ -13,7 +13,7 @@ import { Logo } from './logo'
 const NAV = [
   { label: 'Originals', href: '/originals' },
   { label: 'Multiplayer', href: '/multiplayer' },
-  { label: 'Dual', href: '/dual' },
+  { label: 'Dual', href: '/originals/crash' },
   { label: 'Rewards', href: '/rewards' },
   { label: 'Affiliates', href: '/affiliates' },
 ]
