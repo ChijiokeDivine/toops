@@ -1,25 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import {
-  DUAL_MAX_MULTIPLIER_X100,
-  DUAL_MIN_MULTIPLIER_X100,
-} from './config'
-import {
-  computeCrash,
-  generateClientSeed,
-  generateServerSeed,
-  hashServerSeed,
-} from './fair'
+import { DUAL_MAX_MULTIPLIER_X100, DUAL_MIN_MULTIPLIER_X100 } from './config'
+import { computeCrash, generateClientSeed, generateServerSeed, hashServerSeed } from './fair'
 
 describe('provably fair crash', () => {
-  const serverSeed =
-    '00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff'
+  const serverSeed = '00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff'
   const clientSeeds = ['alice-seed', 'bob-seed']
 
   it('produces a fixed known vector', () => {
     const result = computeCrash(serverSeed, clientSeeds, 0)
-    expect(result.hmacHex).toBe(
-      'e5184f39d0b4ab4e888f036c480cffff0ae9a00c1a58fbd1f0370bfdaa5d0c92',
-    )
+    expect(result.hmacHex).toBe('e5184f39d0b4ab4e888f036c480cffff0ae9a00c1a58fbd1f0370bfdaa5d0c92')
     expect(result.uniform).toBe(3_843_575_609)
     expect(result.crashMultiplierX100).toBe(951)
   })

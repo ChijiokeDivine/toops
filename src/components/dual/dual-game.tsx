@@ -1,12 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { AuthTrigger } from '@/components/auth/auth-trigger'
-import {
-  DUAL_DEFAULT_STAKE_PUSD,
-  DUAL_POLL_IDLE_MS,
-  DUAL_POLL_RUNNING_MS,
-} from '@/lib/dual/config'
+import { DUAL_DEFAULT_STAKE_PUSD, DUAL_HEARTBEAT_MS, DUAL_POLL_IDLE_MS, DUAL_POLL_RUNNING_MS } from '@/lib/dual/config'
 import { formatMultiplier } from '@/lib/dual/curve'
 import type { DualStateResponse, DualStatus } from '@/lib/dual/types'
 import { formatPusdUnits } from '@/lib/pusd'
@@ -45,7 +40,6 @@ export function DualGame() {
   const [busy, setBusy] = useState<string | null>(null)
   const [notice, setNotice] = useState<Notice>(null)
   const [stake, setStake] = useState(() => formatPusdUnits(DUAL_DEFAULT_STAKE_PUSD))
-  const [customMode, setCustomMode] = useState(false)
 
   const authRef = useRef(false)
   const readyKeyRef = useRef<string | null>(null)
@@ -64,11 +58,15 @@ export function DualGame() {
         return null
       }
       const data = (await response.json().catch(() => null)) as
-        | DualStateResponse
-        | { error?: string }
-        | null
+        DualStateResponse | { error?: string } | null
       if (!response.ok || !data || 'error' in data) {
-        setNotice({ tone: 'error', text: (data as { error?: string } | null)?.error ?? 'Unable to load the game.' })
+        setNotice({
+          tone: 'error',
+          text: (data as { error?: string } | null)?.error ?? 'Unable to load the game.',
+        })
+        // Never leave the skeleton spinning forever: a failed poll is shown as
+        // an error with a retry button instead.
+        setLoading(false)
         return null
       }
       const stateData = data as DualStateResponse
@@ -79,6 +77,7 @@ export function DualGame() {
       return stateData
     } catch {
       setNotice({ tone: 'error', text: 'Unable to reach the game server.' })
+      setLoading(false)
       return null
     }
   }, [])
@@ -108,8 +107,7 @@ export function DualGame() {
         }
       }
 
-      const active =
-        data?.match?.status === 'RUNNING' || data?.match?.status === 'COUNTDOWN'
+      const active = data?.match?.status === 'RUNNING' || data?.match?.status === 'COUNTDOWN'
       const delay = authRef.current ? 2_500 : active ? DUAL_POLL_RUNNING_MS : DUAL_POLL_IDLE_MS
       schedule.timer = window.setTimeout(run, delay)
     }
@@ -118,6 +116,69 @@ export function DualGame() {
     return () => {
       control.cancelled = true
       if (schedule.timer) window.clearTimeout(schedule.timer)
+    }
+  }, [refresh])
+
+  // Presence ping that is independent of the state poll. A state poll loads the
+  // user, the match and the ledger, so on a slow link it can take longer than
+  // the disconnect grace window; this single-update request keeps the player
+  // marked online while the heavier request is still in flight.
+  useEffect(() => {
+    const activeMatch = state?.match ?? null
+    const matchId = activeMatch?.id
+    const status = activeMatch?.status
+    if (
+      !matchId ||
+      !status ||
+      (status !== 'WAITING' &&
+        status !== 'COUNTDOWN' &&
+        status !== 'RUNNING' &&
+        status !== 'INTERMISSION')
+    ) {
+      return
+    }
+
+    const control = { cancelled: false }
+    const schedule: { timer?: number } = {}
+
+    const beat = async () => {
+      try {
+        await fetch('/api/dual/heartbeat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ matchId }),
+          cache: 'no-store',
+          keepalive: true,
+        })
+      } catch {
+        // The next tick retries; a failed ping must never break the UI.
+      }
+      if (!control.cancelled) schedule.timer = window.setTimeout(beat, DUAL_HEARTBEAT_MS)
+    }
+
+    schedule.timer = window.setTimeout(beat, DUAL_HEARTBEAT_MS)
+    return () => {
+      control.cancelled = true
+      if (schedule.timer) window.clearTimeout(schedule.timer)
+    }
+    // Restart only when the match itself changes. Using the whole `state.match`
+    // object would restart the timer on every poll, so the ping would never run.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state?.match?.id, state?.match?.status])
+
+  // Background tabs get their timers throttled; refresh immediately when the
+  // player comes back so the countdown does not look frozen.
+  useEffect(() => {
+    const resume = () => {
+      if (document.visibilityState === 'visible') void refresh()
+    }
+    document.addEventListener('visibilitychange', resume)
+    window.addEventListener('focus', resume)
+    window.addEventListener('online', resume)
+    return () => {
+      document.removeEventListener('visibilitychange', resume)
+      window.removeEventListener('focus', resume)
+      window.removeEventListener('online', resume)
     }
   }, [refresh])
 
@@ -137,9 +198,7 @@ export function DualGame() {
           body: body ? JSON.stringify(body) : undefined,
         })
         const data = (await response.json().catch(() => null)) as
-          | Record<string, unknown>
-          | { error?: string }
-          | null
+          Record<string, unknown> | { error?: string } | null
         if (!response.ok) {
           setNotice({
             tone: 'error',
@@ -170,11 +229,7 @@ export function DualGame() {
   const selfPlayer = match?.players.find((player) => player.isSelf) ?? null
   const opponent = match?.players.find((player) => !player.isSelf) ?? null
   const outcome: 'win' | 'lose' | 'neutral' =
-    match?.status === 'SETTLED'
-      ? match.winnerUserId === selfId
-        ? 'win'
-        : 'lose'
-      : 'neutral'
+    match?.status === 'SETTLED' ? (match.winnerUserId === selfId ? 'win' : 'lose') : 'neutral'
 
   // Sound cues. Refs guard against duplicate plays on every poll.
   useEffect(() => {
@@ -219,12 +274,7 @@ export function DualGame() {
 
   const cashout = useCallback(async () => {
     if (!match) return
-    const result = await mutate(
-      '/api/dual/cashout',
-      'POST',
-      { matchId: match.id },
-      'cashout',
-    )
+    const result = await mutate('/api/dual/cashout', 'POST', { matchId: match.id }, 'cashout')
     if (result) {
       play('cashout')
       const multiplier = Number(result.multiplierX100 ?? 0)
@@ -268,19 +318,15 @@ export function DualGame() {
       'rematch',
     )
     if (result) {
-      if (result.matchId) setNotice({ tone: 'success', text: 'Rematch locked — new round starting.' })
+      if (result.matchId)
+        setNotice({ tone: 'success', text: 'Rematch locked — new round starting.' })
       else play('click')
     }
   }, [match, mutate, play])
 
   const declineRematch = useCallback(async () => {
     if (!match) return
-    await mutate(
-      '/api/dual/rematch',
-      'POST',
-      { matchId: match.id, action: 'decline' },
-      'decline',
-    )
+    await mutate('/api/dual/rematch', 'POST', { matchId: match.id, action: 'decline' }, 'decline')
   }, [match, mutate])
 
   const regenerateSeed = useCallback(async () => {
@@ -292,7 +338,12 @@ export function DualGame() {
     if (!match) return
     const reason = window.prompt('Describe the problem with this round:')
     if (!reason || reason.trim().length < 3) return
-    const result = await mutate('/api/dual/dispute', 'POST', { matchId: match.id, reason }, 'dispute')
+    const result = await mutate(
+      '/api/dual/dispute',
+      'POST',
+      { matchId: match.id, reason },
+      'dispute',
+    )
     if (result) {
       setNotice({
         tone: 'info',
@@ -340,7 +391,8 @@ export function DualGame() {
           Winning rule
         </p>
         <p className="mt-0.5 text-[10px] leading-relaxed text-white/60">
-          The last cashout before the crash takes the pot. Cashouts stay hidden until the round ends.
+          The last cashout before the crash takes the pot. Cashouts stay hidden until the round
+          ends.
         </p>
       </div>
     </div>
@@ -351,9 +403,6 @@ export function DualGame() {
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            
-            <h1 className="text-2xl font-black tracking-tight text-white sm:text-3xl">Dual Crash</h1>
-           
             {match?.status === 'RUNNING' ? (
               <span className="flex items-center gap-1.5 rounded-full border border-[#00fa7f]/30 bg-[#00fa7f]/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.16em] text-[#00fa7f]">
                 <span className="dual-live-dot h-1.5 w-1.5 rounded-full bg-[#00fa7f]" />
@@ -361,20 +410,10 @@ export function DualGame() {
               </span>
             ) : null}
           </div>
-          <p className="mt-1 max-w-xl text-[12px] text-[var(--t-muted)]">
-            Two players, equal locked stakes, one crash. Cash out last to take the pot.
-          </p>
         </div>
 
         <div className="flex items-center gap-2">
-          {state ? (
-            <div className="rounded-xl border border-white/[0.07] bg-white/[0.03] px-3 py-1.5 text-right">
-              <p className="text-[8px] font-semibold uppercase tracking-[0.16em] text-[var(--t-muted)]">
-                PUSD balance
-              </p>
-              <p className="text-[13px] font-bold tabular-nums text-white">{usd(state.user.balancePusd)}</p>
-            </div>
-          ) : null}
+        
           <button
             type="button"
             onClick={toggleMuted}
@@ -382,12 +421,24 @@ export function DualGame() {
             className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.03] text-white/65 transition hover:border-white/20 hover:text-white"
           >
             {muted ? (
-              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <svg
+                viewBox="0 0 24 24"
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+              >
                 <path d="M4 9v6h4l5 4V5L8 9H4Z" strokeLinejoin="round" />
                 <path d="m17 9 4 6M21 9l-4 6" strokeLinecap="round" />
               </svg>
             ) : (
-              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <svg
+                viewBox="0 0 24 24"
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+              >
                 <path d="M4 9v6h4l5 4V5L8 9H4Z" strokeLinejoin="round" />
                 <path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11" strokeLinecap="round" />
               </svg>
@@ -411,28 +462,26 @@ export function DualGame() {
         </div>
       ) : null}
 
-      {authRequired ? (
-        <section className="dual-card p-7 text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-[#00fa7f]/20 bg-[#00fa7f]/10">
-            <svg viewBox="0 0 24 24" className="h-6 w-6 text-[#00fa7f]" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <rect x="4" y="10" width="16" height="10" rx="2" />
-              <path d="M8 10V7a4 4 0 0 1 8 0v3" strokeLinecap="round" />
-            </svg>
-          </div>
-          <h2 className="mt-3 text-xl font-bold text-white">Sign in to play Dual Crash</h2>
-          <p className="mx-auto mt-1 max-w-sm text-[12px] text-[var(--t-muted)]">
-            Stakes and payouts use your PUSD balance. Sign in with Telegram or a connected wallet to
-            join the queue.
-          </p>
-          <AuthTrigger
-            view="telegram"
-            className="mt-4 h-11 rounded-xl bg-[var(--t-green)] px-6 text-[12px] font-black uppercase tracking-[0.12em] text-[var(--t-green-ink)] transition hover:brightness-110"
-          >
-            Sign in
-          </AuthTrigger>
-        </section>
-      ) : loading ? (
+      {loading ? (
         <div className="dual-card h-[320px] animate-pulse bg-white/[0.02]" />
+      ) : !state && !authRequired ? (
+        <div className="dual-card flex h-[320px] flex-col items-center justify-center gap-3 p-6 text-center">
+          <p className="text-sm font-bold text-white">Could not load the game</p>
+          <p className="max-w-sm text-[12px] leading-relaxed text-[var(--t-muted)]">
+            The server took too long to answer. Your match is still running on the server — retry
+            to reconnect.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setLoading(true)
+              void refresh()
+            }}
+            className="h-9 rounded-lg bg-[var(--t-green)] px-4 text-[11px] font-black uppercase tracking-[0.08em] text-[var(--t-green-ink)] transition hover:brightness-110"
+          >
+            Retry
+          </button>
+        </div>
       ) : state?.queue ? (
         <QueuePanel
           stakePusd={state.queue.stakePusd}
@@ -445,22 +494,20 @@ export function DualGame() {
           balancePusd={state?.user.balancePusd ?? '0.00'}
           stake={stake}
           onStakeChange={setStake}
-          customMode={customMode}
-          onCustomModeChange={setCustomMode}
           onJoin={join}
           busy={busy === 'queue'}
           error={null}
+          signedIn={!authRequired && state != null}
+          players={state?.match?.players.length ?? 1}
         />
       ) : match ? (
-        <section className="dual-card p-3 sm:p-4">
+        <section className="dual-card p-3 sm:p-4 ">
           <div className="flex flex-wrap items-center justify-between gap-2 px-1">
             <div className="flex items-center gap-2 text-[11px]">
               <span className="rounded-md border border-white/[0.08] bg-white/[0.03] px-2 py-0.5 font-semibold text-white/65">
                 Round #{match.round}
               </span>
-              <span className="text-[var(--t-muted)]">
-                {usd(match.stakePusd)} each
-              </span>
+              <span className="text-[var(--t-muted)]">{usd(match.stakePusd)} each</span>
               {match.replayCount > 0 ? (
                 <span className="rounded-md border border-[#ffdf1a]/20 bg-[#ffdf1a]/10 px-2 py-0.5 text-[10px] font-semibold text-[#ffdf1a]">
                   Replay {match.replayCount}
@@ -506,7 +553,10 @@ export function DualGame() {
                     </p>
                     <div className="mt-3 flex items-center gap-3 text-[10px]">
                       {match.players.map((player) => (
-                        <span key={player.userId} className="flex items-center gap-1.5 text-white/60">
+                        <span
+                          key={player.userId}
+                          className="flex items-center gap-1.5 text-white/60"
+                        >
                           <span
                             className={`h-1.5 w-1.5 rounded-full ${player.ready ? 'bg-[#00fa7f]' : 'bg-white/25'}`}
                           />
@@ -535,8 +585,8 @@ export function DualGame() {
                       Both players busted — replaying with the same stakes
                     </p>
                     <p className="mt-0.5 text-[10px] text-white/55">
-                      Next round in {secondsUntil(match.intermissionEndsAt, match.serverNow)}s. No fee is
-                      charged until a winner exists.
+                      Next round in {secondsUntil(match.intermissionEndsAt, match.serverNow)}s. No
+                      fee is charged until a winner exists.
                     </p>
                   </div>
                   {match.viewer.canCancel ? (
@@ -582,8 +632,18 @@ export function DualGame() {
                       <span className="hidden text-[10px] font-semibold uppercase tracking-[0.12em] opacity-60 sm:block">
                         Space
                       </span>
-                      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M5 12h13M13 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+                      <svg
+                        viewBox="0 0 24 24"
+                        className="h-5 w-5"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <path
+                          d="M5 12h13M13 6l6 6-6 6"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
                       </svg>
                     </span>
                   </button>
@@ -647,20 +707,22 @@ export function DualGame() {
         />
       ) : null}
 
-      <FairnessPanel
-        key={`${match?.id ?? 'none'}:${match?.round ?? 0}:${match?.serverSeed ?? 'hidden'}`}
-        clientSeed={state?.user.clientSeed ?? ''}
-        match={match}
-        busy={busy === 'seed'}
-        onRegenerate={regenerateSeed}
-      />
+      {!authRequired && !loading && state ? (
+        <FairnessPanel
+          key={`${match?.id ?? 'none'}:${match?.round ?? 0}:${match?.serverSeed ?? 'hidden'}`}
+          clientSeed={state.user.clientSeed}
+          match={match}
+          busy={busy === 'seed'}
+          onRegenerate={regenerateSeed}
+        />
+      ) : null}
 
       <HistoryPanel refreshKey={historyKey} />
 
       {opponent ? (
         <p className="px-1 text-center text-[10px] text-[var(--t-muted)]">
-          Opponent: <span className="text-white/55">{opponent.displayName}</span> · cashout timing is
-          hidden until the round ends.
+          Opponent: <span className="text-white/55">{opponent.displayName}</span> · cashout timing
+          is hidden until the round ends.
         </p>
       ) : null}
     </div>

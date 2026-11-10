@@ -3,7 +3,13 @@
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { AUTH_EVENT, type AuthMode, type AuthRequest, type AuthView } from './auth-events'
+import {
+  AUTH_EVENT,
+  consumePendingAuth,
+  type AuthMode,
+  type AuthRequest,
+  type AuthView,
+} from './auth-events'
 import { TelegramLogin } from './telegram-login'
 
 const WizardConnectLogin = dynamic(
@@ -49,7 +55,16 @@ export function AuthDialog() {
 
   useEffect(() => {
     function handleOpen(event: Event) {
+      // Claim the buffered request so the mount effect below does not reopen it.
+      consumePendingAuth()
       openDialog((event as CustomEvent<AuthRequest>).detail ?? {})
+    }
+
+    // A click can land before this component hydrates. If a request was
+    // buffered in that window, open it after the first render commits.
+    const pending = consumePendingAuth()
+    if (pending) {
+      queueMicrotask(() => openDialog(pending))
     }
 
     window.addEventListener(AUTH_EVENT, handleOpen)
@@ -153,23 +168,6 @@ export function AuthDialog() {
             <h2 id="auth-dialog-title" className="text-xl font-semibold text-white">
               {linking ? 'Link payout wallet' : 'Sign in to toops'}
             </h2>
-            <span className="group relative inline-flex">
-              <button
-                type="button"
-                aria-label="Authentication security information"
-                aria-describedby="auth-security-tooltip"
-                className="grid h-6 w-6 shrink-0 cursor-help place-items-center rounded-full border border-[var(--t-border)] text-[10px] font-semibold text-[var(--t-muted)] transition hover:bg-[var(--t-surface-2)] hover:text-white"
-              >
-                ?
-              </button>
-              <span
-                id="auth-security-tooltip"
-                role="tooltip"
-                className="pointer-events-none absolute left-0 top-full z-10 mt-2 w-56 rounded-lg border border-[var(--t-border)] bg-[var(--t-surface-2)] px-3 py-2 text-xs font-normal leading-relaxed text-[var(--t-muted)] opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100"
-              >
-                Your keys never leave your wallet. This window closes when authentication completes.
-              </span>
-            </span>
           </div>
           <button
             type="button"
@@ -230,8 +228,6 @@ export function AuthDialog() {
             <WizardConnectLogin mode={mode} onSuccess={handleSuccess} />
           )}
         </div>
-
-       
       </div>
     </div>
   )

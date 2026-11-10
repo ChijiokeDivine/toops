@@ -7,6 +7,7 @@ import {
   DUAL_COUNTDOWN_MS,
   DUAL_DISCONNECT_GRACE_MS,
   DUAL_INTERMISSION_MS,
+  DUAL_LAUNCH_HOLD_MS,
   DUAL_MAX_DISPUTE_REASON_LENGTH,
   DUAL_MAX_STAKE_PUSD,
   DUAL_MIN_STAKE_PUSD,
@@ -160,7 +161,10 @@ function makeFreshRound(serverSeed: string, clientSeeds: string[], nonce: number
 
 // ── queue ───────────────────────────────────────────────────
 
-export async function joinQueue(userId: string, stakePusd: bigint): Promise<{ matchId: string | null }> {
+export async function joinQueue(
+  userId: string,
+  stakePusd: bigint,
+): Promise<{ matchId: string | null }> {
   if (stakePusd < DUAL_MIN_STAKE_PUSD) {
     throw new DualError(
       `Minimum stake is ${formatPusdUnits(DUAL_MIN_STAKE_PUSD)} PUSD.`,
@@ -279,7 +283,10 @@ export async function joinQueue(userId: string, stakePusd: bigint): Promise<{ ma
   })
 }
 
-async function refundTicketWithinTx(tx: Tx, ticket: { id: string; userId: string; stakePusd: bigint }) {
+async function refundTicketWithinTx(
+  tx: Tx,
+  ticket: { id: string; userId: string; stakePusd: bigint },
+) {
   const deleted = await tx.dualTicket.deleteMany({ where: { id: ticket.id } })
   if (deleted.count !== 1) return
 
@@ -408,9 +415,7 @@ function buildMatchView(match: MatchWithPlayers, userId: string, now: Date): Dua
   }
 
   const countdownMsRemaining =
-    status === 'COUNTDOWN' && startsAtMs != null
-      ? Math.max(0, startsAtMs - now.getTime())
-      : null
+    status === 'COUNTDOWN' && startsAtMs != null ? Math.max(0, startsAtMs - now.getTime()) : null
 
   const projected =
     match.status === 'CANCELLED'
@@ -456,16 +461,14 @@ function buildMatchView(match: MatchWithPlayers, userId: string, now: Date): Dua
     stakePusd: formatPusdUnits(match.stakePusd),
     potPusd: formatPusdUnits(match.potPusd),
     feePusd: formatPusdUnits(match.feePusd > 0n ? match.feePusd : projected.feePusd),
-    payoutPusd: formatPusdUnits(
-      match.payoutPusd > 0n ? match.payoutPusd : projected.payoutPusd,
-    ),
+    payoutPusd: formatPusdUnits(match.payoutPusd > 0n ? match.payoutPusd : projected.payoutPusd),
     winnerUserId: status === 'SETTLED' ? match.winnerUserId : null,
     serverSeedHash: match.serverSeedHash,
     serverSeed: isRevealed ? match.serverSeed : null,
     nonce: isRevealed ? match.nonce : null,
     crashMultiplierX100: isRevealed ? match.crashMultiplierX100 : null,
     startsAt: match.startsAt?.toISOString() ?? null,
-    crashAt: isRevealed ? match.crashAt?.toISOString() ?? null : null,
+    crashAt: isRevealed ? (match.crashAt?.toISOString() ?? null) : null,
     intermissionEndsAt: match.intermissionEndsAt?.toISOString() ?? null,
     readyDeadlineAt: match.readyDeadlineAt?.toISOString() ?? null,
     endedAt: match.endedAt?.toISOString() ?? null,
@@ -479,10 +482,7 @@ function buildMatchView(match: MatchWithPlayers, userId: string, now: Date): Dua
       cashoutMultiplierX100: selfPlayer?.cashoutMultiplierX100 ?? null,
       canCashOut,
       canCancel: selfPlayer != null && CANCELLABLE.has(status),
-      canRematch:
-        selfPlayer != null &&
-        status === 'SETTLED' &&
-        match.rematchCreatedAt == null,
+      canRematch: selfPlayer != null && status === 'SETTLED' && match.rematchCreatedAt == null,
       canLeave: selfPlayer != null && TERMINAL.has(status) && match.rematchCreatedAt == null,
     },
     rematchDeclined: match.rematchDeclinedAt != null,
@@ -497,18 +497,24 @@ async function loadMatchForView(matchId: string): Promise<MatchWithPlayers | nul
 }
 
 /**
- * Heartbeats must take the match advisory lock before touching a player row.
- * Otherwise a heartbeat that holds a row lock can deadlock with `markReady`,
- * which holds the advisory lock and waits for the same row.
+ * Refreshes a player's presence. This is deliberately one plain `UPDATE`
+ * instead of an interactive transaction that takes the match advisory lock:
+ * - it is a single round-trip, which matters a lot when the database link is
+ *   slow (a heartbeat must never itself become the reason a player looks gone);
+ * - a plain `UPDATE` only waits for row locks and never waits on the advisory
+ *   lock, so it cannot deadlock with `markReady` (which holds the advisory lock
+ *   while updating the same row).
  */
 async function touchPlayerHeartbeat(matchId: string, userId: string): Promise<void> {
-  await runTx(async (tx) => {
-    await acquireLock(tx, matchLockKey(matchId))
-    await tx.dualMatchPlayer.updateMany({
-      where: { matchId, userId },
-      data: { lastSeenAt: new Date() },
-    })
+  await prisma.dualMatchPlayer.updateMany({
+    where: { matchId, userId },
+    data: { lastSeenAt: new Date() },
   })
+}
+
+/** Lightweight presence ping used by the client while a match is open. */
+export async function heartbeatMatch(matchId: string, userId: string): Promise<void> {
+  await touchPlayerHeartbeat(matchId, userId)
 }
 
 export async function getDualState(userId: string): Promise<DualStateResponse> {
@@ -525,12 +531,14 @@ export async function getDualState(userId: string): Promise<DualStateResponse> {
   })
   if (!initial) throw new DualError('User not found.', 404, 'USER_NOT_FOUND')
 
+  let changed = false
   if (initial.activeMatchId) {
     await touchPlayerHeartbeat(initial.activeMatchId, userId).catch((error) => {
       console.error('[dual] heartbeat failed', initial.activeMatchId, error)
     })
-    await advanceMatch(initial.activeMatchId).catch((error) => {
+    changed = await advanceMatch(initial.activeMatchId).catch((error) => {
       console.error('[dual] advance failed', initial.activeMatchId, error)
+      return false
     })
   } else {
     await expireTicketForUser(userId).catch((error) => {
@@ -538,25 +546,35 @@ export async function getDualState(userId: string): Promise<DualStateResponse> {
     })
   }
 
-  const [user, ticket] = await Promise.all([
-    prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        displayName: true,
-        avatarUrl: true,
-        balancePusd: true,
-        clientSeed: true,
-        activeMatchId: true,
-      },
-    }),
-    prisma.dualTicket.findUnique({ where: { userId } }),
+  // Only re-read the user when a phase change could have moved their balance.
+  // When a match is active the ticket is always gone, so it does not need a
+  // query either. The match view is fetched in parallel with the rest, which
+  // saves several round-trips on a slow database link.
+  const [user, ticket, match] = await Promise.all([
+    // Without an active match, `expireTicketForUser` may have refunded a stake,
+    // so the balance has to be re-read even when no phase changed.
+    changed || !initial.activeMatchId
+      ? prisma.user.findUnique({
+          where: { id: userId },
+          select: {
+            id: true,
+            displayName: true,
+            avatarUrl: true,
+            balancePusd: true,
+            clientSeed: true,
+            activeMatchId: true,
+          },
+        })
+      : Promise.resolve(initial),
+    initial.activeMatchId
+      ? Promise.resolve(null)
+      : prisma.dualTicket.findUnique({ where: { userId } }),
+    initial.activeMatchId ? loadMatchForView(initial.activeMatchId) : Promise.resolve(null),
   ])
 
   if (!user) throw new DualError('User not found.', 404, 'USER_NOT_FOUND')
 
   const clientSeed = user.clientSeed ?? (await ensureClientSeed(prisma, userId))
-  const match = user.activeMatchId ? await loadMatchForView(user.activeMatchId) : null
   const now = new Date()
 
   return {
@@ -597,16 +615,16 @@ export async function markReady(matchId: string, userId: string): Promise<void> 
     })
 
     if (match.status === 'WAITING') {
-      const bothReady = match.players.every(
-        (player) => player.ready || player.userId === userId,
-      )
+      const bothReady = match.players.every((player) => player.ready || player.userId === userId)
       if (bothReady) {
         await tx.dualMatch.update({
           where: { id: matchId },
           data: {
             status: 'COUNTDOWN',
             startsAt: new Date(now.getTime() + DUAL_COUNTDOWN_MS),
-            readyDeadlineAt: null,
+            // Becomes the watchdog for the launch hold, rather than the
+            // "players did not load" deadline used while waiting.
+            readyDeadlineAt: new Date(now.getTime() + DUAL_LAUNCH_HOLD_MS),
           },
         })
       }
@@ -616,7 +634,10 @@ export async function markReady(matchId: string, userId: string): Promise<void> 
 
 // ── cashout ─────────────────────────────────────────────────
 
-export async function cashOut(matchId: string, userId: string): Promise<{ multiplierX100: number }> {
+export async function cashOut(
+  matchId: string,
+  userId: string,
+): Promise<{ multiplierX100: number }> {
   return runTx(async (tx) => {
     await acquireLock(tx, matchLockKey(matchId))
     const match = await tx.dualMatch.findUnique({ where: { id: matchId }, include: MATCH_INCLUDE })
@@ -679,7 +700,18 @@ function latestCashout(players: PlayerWithUser[]): PlayerWithUser | null {
 
 // ── phase advancement ───────────────────────────────────────
 
-export async function advanceMatch(matchId: string): Promise<void> {
+/**
+ * Moves a match forward through its phases. Returns `true` when anything
+ * changed, so `getDualState` knows whether the user's balance may have moved.
+ *
+ * The match and its players are fetched together: the previous version made a
+ * second query for the players on every poll, which is costly on a slow link.
+ * Transitions still re-read the row inside their own advisory-locked
+ * transaction so concurrent polls cannot double-apply them.
+ */
+export async function advanceMatch(matchId: string): Promise<boolean> {
+  let changed = false
+
   // A match can move through several phases in one call (e.g. the server was
   // asleep through the countdown and the crash). The loop is bounded.
   for (let step = 0; step < 6; step++) {
@@ -692,84 +724,121 @@ export async function advanceMatch(matchId: string): Promise<void> {
         crashAt: true,
         readyDeadlineAt: true,
         intermissionEndsAt: true,
+        players: { select: { ready: true, lastSeenAt: true } },
       },
     })
-    if (!match) return
+    if (!match) return changed
 
     const status = match.status as DualStatus
-    if (TERMINAL.has(status)) return
+    if (TERMINAL.has(status)) return changed
     const now = new Date()
 
     if (status === 'WAITING') {
       if (match.readyDeadlineAt && now.getTime() > match.readyDeadlineAt.getTime()) {
-        const changed = await cancelMatch(matchId, 'Players did not load in time.')
-        if (!changed) return
+        return (await cancelMatch(matchId, 'Players did not load in time.')) || changed
+      }
+      if (match.players.length !== 2) return changed
+      if (match.players.every((player) => player.ready)) {
+        const started = await startCountdown(matchId)
+        changed = changed || started
+        if (!started) return changed
         continue
       }
-      const ready = await prisma.dualMatchPlayer.findMany({
-        where: { matchId },
-        select: { ready: true, lastSeenAt: true },
-      })
-      if (ready.length !== 2) return
-      if (ready.every((player) => player.ready)) {
-        const changed = await startCountdown(matchId)
-        if (!changed) return
-        continue
-      }
-      return
+      return changed
     }
 
     if (status === 'COUNTDOWN') {
-      const players = await prisma.dualMatchPlayer.findMany({
-        where: { matchId },
-        select: { ready: true, lastSeenAt: true },
-      })
-      if (players.length !== 2) return
-      if (players.some((player) => !isOnlineLite(player.lastSeenAt, now))) {
-        const changed = await cancelMatch(matchId, 'A player disconnected before launch.')
-        if (!changed) return
-        continue
+      if (match.players.length !== 2) return changed
+
+      // A slow request, a retried fetch or a background tab can delay a
+      // heartbeat by more than a few seconds. Do not refund a match that is
+      // still alive: hold the launch instead, and give the missing player a
+      // fresh full countdown as soon as they check in. Only give up once the
+      // launch watchdog has expired.
+      if (match.players.some((player) => !isOnlineLite(player.lastSeenAt, now))) {
+        if (match.readyDeadlineAt && now.getTime() > match.readyDeadlineAt.getTime()) {
+          return (await cancelMatch(matchId, 'Players did not load in time.')) || changed
+        }
+        const held = await holdCountdown(matchId, now)
+        return changed || held
       }
+
       if (match.startsAt && now.getTime() >= match.startsAt.getTime()) {
-        const changed = await startRunning(matchId)
-        if (!changed) return
+        const started = await startRunning(matchId)
+        changed = changed || started
+        if (!started) return changed
         continue
       }
-      return
+      return changed
     }
 
     if (status === 'RUNNING') {
-      if (!match.crashAt || now.getTime() < match.crashAt.getTime()) return
-      const changed = await finalizeRound(matchId, now)
-      if (!changed) return
+      if (!match.crashAt || now.getTime() < match.crashAt.getTime()) return changed
+      const finalized = await finalizeRound(matchId, now)
+      changed = changed || finalized
+      if (!finalized) return changed
       continue
     }
 
     if (status === 'INTERMISSION') {
       if (!match.intermissionEndsAt || now.getTime() < match.intermissionEndsAt.getTime()) {
-        return
+        return changed
       }
-      const players = await prisma.dualMatchPlayer.findMany({
-        where: { matchId },
-        select: { ready: true, lastSeenAt: true },
-      })
-      if (players.length !== 2) return
-      if (players.some((player) => !isOnlineLite(player.lastSeenAt, now))) {
-        const changed = await cancelMatch(matchId, 'A player left during the replay intermission.')
-        if (!changed) return
-        continue
+      if (match.players.length !== 2) return changed
+      if (match.players.some((player) => !isOnlineLite(player.lastSeenAt, now))) {
+        if (match.readyDeadlineAt && now.getTime() > match.readyDeadlineAt.getTime()) {
+          return (
+            (await cancelMatch(matchId, 'A player left during the replay intermission.')) || changed
+          )
+        }
+        const held = await holdIntermission(matchId, now)
+        return changed || held
       }
-      const changed = await startNextRound(matchId, now)
-      if (!changed) return
+      const started = await startNextRound(matchId, now)
+      changed = changed || started
+      if (!started) return changed
       continue
     }
 
-    return
+    return changed
   }
+
+  return changed
 }
 
 function isOnlineLite(lastSeenAt: Date, now: Date): boolean {
   return now.getTime() - lastSeenAt.getTime() <= DUAL_DISCONNECT_GRACE_MS
+}
+
+/**
+ * Restarts the countdown while one player is unreachable. `readyDeadlineAt`
+ * (set when the countdown began) caps how long this can go on.
+ */
+async function holdCountdown(matchId: string, now: Date): Promise<boolean> {
+  return runTx(async (tx) => {
+    await acquireLock(tx, matchLockKey(matchId))
+    const match = await tx.dualMatch.findUnique({ where: { id: matchId }, select: { status: true } })
+    if (!match || match.status !== 'COUNTDOWN') return false
+    const updated = await tx.dualMatch.updateMany({
+      where: { id: matchId, status: 'COUNTDOWN' },
+      data: { startsAt: new Date(now.getTime() + DUAL_COUNTDOWN_MS) },
+    })
+    return updated.count === 1
+  })
+}
+
+/** Extends the replay intermission while a player is unreachable. */
+async function holdIntermission(matchId: string, now: Date): Promise<boolean> {
+  return runTx(async (tx) => {
+    await acquireLock(tx, matchLockKey(matchId))
+    const match = await tx.dualMatch.findUnique({ where: { id: matchId }, select: { status: true } })
+    if (!match || match.status !== 'INTERMISSION') return false
+    const updated = await tx.dualMatch.updateMany({
+      where: { id: matchId, status: 'INTERMISSION' },
+      data: { intermissionEndsAt: new Date(now.getTime() + DUAL_INTERMISSION_MS) },
+    })
+    return updated.count === 1
+  })
 }
 
 async function startCountdown(matchId: string): Promise<boolean> {
@@ -785,7 +854,7 @@ async function startCountdown(matchId: string): Promise<boolean> {
       data: {
         status: 'COUNTDOWN',
         startsAt: new Date(now.getTime() + DUAL_COUNTDOWN_MS),
-        readyDeadlineAt: null,
+        readyDeadlineAt: new Date(now.getTime() + DUAL_LAUNCH_HOLD_MS),
       },
     })
     return updated.count === 1
@@ -800,15 +869,15 @@ async function startRunning(matchId: string): Promise<boolean> {
 
     const now = new Date()
     if (match.players.some((player) => !isOnline(player, now))) {
-      await cancelWithinTx(tx, match, 'A player disconnected before launch.', now)
-      return true
+      // The caller only starts a round when both players checked in, so this is
+      // a narrow race. Return `false` and let `advanceMatch` hold/restart the
+      // countdown instead of refunding a match that just missed a heartbeat.
+      return false
     }
 
     const crashX100 = match.crashMultiplierX100
     if (crashX100 == null) return false
-    const crashAt = new Date(
-      match.startsAt.getTime() + elapsedMsForMultiplierX100(crashX100),
-    )
+    const crashAt = new Date(match.startsAt.getTime() + elapsedMsForMultiplierX100(crashX100))
 
     const updated = await tx.dualMatch.updateMany({
       where: { id: matchId, status: 'COUNTDOWN' },
@@ -836,11 +905,7 @@ async function finalizeRound(matchId: string, now: Date): Promise<boolean> {
   })
 }
 
-async function intermissionWithinTx(
-  tx: Tx,
-  match: MatchWithPlayers,
-  now: Date,
-): Promise<boolean> {
+async function intermissionWithinTx(tx: Tx, match: MatchWithPlayers, now: Date): Promise<boolean> {
   const crashX100 = match.crashMultiplierX100
   if (crashX100 == null) return false
 
@@ -868,6 +933,8 @@ async function intermissionWithinTx(
       status: 'INTERMISSION',
       replayCount: { increment: 1 },
       intermissionEndsAt: new Date(now.getTime() + DUAL_INTERMISSION_MS),
+      // Watchdog for how long the replay may be held while a player is away.
+      readyDeadlineAt: new Date(now.getTime() + DUAL_LAUNCH_HOLD_MS),
       roundHistory: history as unknown as Prisma.InputJsonValue,
       endedAt: null,
     },
@@ -883,8 +950,9 @@ async function startNextRound(matchId: string, now: Date): Promise<boolean> {
     if (!match || match.status !== 'INTERMISSION') return false
 
     if (match.players.some((player) => !isOnline(player, now))) {
-      await cancelWithinTx(tx, match, 'A player left during the replay intermission.', now)
-      return true
+      // `advanceMatch` already held the intermission when a player was missing;
+      // this race should not refund a live match.
+      return false
     }
 
     const serverSeed = generateServerSeed()
@@ -905,7 +973,7 @@ async function startNextRound(matchId: string, now: Date): Promise<boolean> {
         crashAt: null,
         startsAt: new Date(now.getTime() + DUAL_COUNTDOWN_MS),
         intermissionEndsAt: null,
-        readyDeadlineAt: null,
+        readyDeadlineAt: new Date(now.getTime() + DUAL_LAUNCH_HOLD_MS),
         endedAt: null,
       },
     })
@@ -1060,7 +1128,10 @@ export async function cancelMatchAsPlayer(matchId: string, userId: string): Prom
 
 // ── rematch / leave ─────────────────────────────────────────
 
-export async function requestRematch(matchId: string, userId: string): Promise<{ matchId: string | null }> {
+export async function requestRematch(
+  matchId: string,
+  userId: string,
+): Promise<{ matchId: string | null }> {
   return runTx(async (tx) => {
     await acquireLock(tx, matchLockKey(matchId))
     const match = await tx.dualMatch.findUnique({ where: { id: matchId }, include: MATCH_INCLUDE })
@@ -1124,7 +1195,11 @@ export async function requestRematch(matchId: string, userId: string): Promise<{
         kind: 'BET',
         amountPusd: -match.stakePusd,
         reference: `dual:bet:${rematch.id}:${entry.userId}`,
-        metadata: { matchId: rematch.id, rematchOf: match.id, stakePusd: match.stakePusd.toString() },
+        metadata: {
+          matchId: rematch.id,
+          rematchOf: match.id,
+          stakePusd: match.stakePusd.toString(),
+        },
       })
     }
 
@@ -1224,11 +1299,11 @@ export async function disputeMatch(
   })
 }
 
-export async function verifyMatch(
-  matchId: string,
-  round?: number,
-): Promise<DualVerifyResponse> {
-  const match = await prisma.dualMatch.findUnique({ where: { id: matchId }, include: MATCH_INCLUDE })
+export async function verifyMatch(matchId: string, round?: number): Promise<DualVerifyResponse> {
+  const match = await prisma.dualMatch.findUnique({
+    where: { id: matchId },
+    include: MATCH_INCLUDE,
+  })
   if (!match) throw new DualError('Match not found.', 404, 'MATCH_NOT_FOUND')
 
   const history = toJsonHistory(match.roundHistory)
@@ -1243,8 +1318,7 @@ export async function verifyMatch(
   const serverSeed = historyEntry?.serverSeed ?? match.serverSeed
   const serverSeedHash = historyEntry?.serverSeedHash ?? match.serverSeedHash
   const nonce = historyEntry?.nonce ?? match.nonce
-  const clientSeeds =
-    historyEntry?.clientSeeds ?? match.players.map((player) => player.clientSeed)
+  const clientSeeds = historyEntry?.clientSeeds ?? match.players.map((player) => player.clientSeed)
   const storedCrash = historyEntry?.crashMultiplierX100 ?? match.crashMultiplierX100
 
   const hashMatches = hashServerSeed(serverSeed) === serverSeedHash
@@ -1257,10 +1331,12 @@ export async function verifyMatch(
     computed && storedCrash != null ? computed.crashMultiplierX100 === storedCrash : null
 
   if (canReveal && (!hashMatches || crashMatches === false)) {
-    await prisma.dualMatch.update({
-      where: { id: matchId },
-      data: { integrityOk: false, disputed: true },
-    }).catch(() => undefined)
+    await prisma.dualMatch
+      .update({
+        where: { id: matchId },
+        data: { integrityOk: false, disputed: true },
+      })
+      .catch(() => undefined)
   }
 
   return {

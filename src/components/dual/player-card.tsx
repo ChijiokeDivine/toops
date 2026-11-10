@@ -73,18 +73,14 @@ export function PlayerCard({ player, status, winnerUserId }: PlayerCardProps) {
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            <p className="truncate text-[13px] font-semibold text-white">
-              {player.displayName}
-            </p>
+            <p className="truncate text-[13px] font-semibold text-white">{player.displayName}</p>
             {player.isSelf ? (
               <span className="rounded bg-[#00fa7f]/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[#00fa7f]">
                 You
               </span>
             ) : null}
           </div>
-          <p className="mt-0.5 text-[11px] text-[var(--t-muted)]">
-            {usd(player.stakePusd)} stake
-          </p>
+          <p className="mt-0.5 text-[11px] text-[var(--t-muted)]">{usd(player.stakePusd)} stake</p>
         </div>
 
         {player.rematchRequested && status === 'SETTLED' ? (

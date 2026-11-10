@@ -27,9 +27,7 @@ export function FairnessPanel({ clientSeed, match, busy, onRegenerate }: Fairnes
         { cache: 'no-store' },
       )
       const data = (await response.json().catch(() => null)) as
-        | DualVerifyResponse
-        | { error?: string }
-        | null
+        DualVerifyResponse | { error?: string } | null
       if (!response.ok) {
         setError((data as { error?: string } | null)?.error ?? 'Verification failed.')
         return
@@ -53,26 +51,30 @@ export function FairnessPanel({ clientSeed, match, busy, onRegenerate }: Fairnes
   }
 
   return (
-    <section className="dual-card p-4 sm:p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-1">
-            <span className="flex h-9 w-9 items-center justify-center rounded-md">
-              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.9">
-                <path d="M12 3l7 3v5c0 4.4-2.9 8.2-7 10-4.1-1.8-7-5.6-7-10V6l7-3Z" strokeLinejoin="round" />
-                <path d="m9 12 2 2 4-4" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </span>
-            <h2 className="text-lg font-bold text-white">Provably fair</h2>
-          </div>
-          <p className="mt-1 max-w-xl text-[12px] leading-relaxed text-[var(--t-muted)]">
-            The crash point is derived from the server seed, both client seeds, and the round nonce.
-            The server seed hash is published before launch; the seed itself is revealed only after
-            the round ends.
-          </p>
+    <details className="dual-card group/section bg-[#050910] p-4 sm:p-5">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-2">
+        <div className="flex items-center gap-1">
+          <span className="flex h-9 w-9 items-center justify-center rounded-md">
+            <svg
+              viewBox="0 0 24 24"
+              className="h-4 w-4"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.9"
+            >
+              <path
+                d="M12 3l7 3v5c0 4.4-2.9 8.2-7 10-4.1-1.8-7-5.6-7-10V6l7-3Z"
+                strokeLinejoin="round"
+              />
+              <path d="m9 12 2 2 4-4" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </span>
+          <h2 className="text-lg font-bold text-white">Provably fair</h2>
         </div>
-  
-      </div>
+        <span className="shrink-0 text-2xl leading-none text-white/40 transition group-open/section:rotate-45">
+          ＋
+        </span>
+      </summary>
 
       <div className="mt-4 grid gap-3 lg:grid-cols-[1.15fr_1fr]">
         <div className="rounded-xl border border-white/[0.06] bg-[#070b13]/60 p-3">
@@ -100,9 +102,7 @@ export function FairnessPanel({ clientSeed, match, busy, onRegenerate }: Fairnes
               New
             </button>
           </div>
-          <p className="mt-1.5 text-[10px] leading-relaxed text-[var(--t-muted)]">
-            Your seed is snapshotted when a match starts so you can verify every round later.
-          </p>
+        
         </div>
 
         <div className="rounded-xl border border-white/[0.06] bg-[#070b13]/60 p-3">
@@ -133,7 +133,9 @@ export function FairnessPanel({ clientSeed, match, busy, onRegenerate }: Fairnes
               </div>
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[var(--t-muted)]">Server seed hash</span>
-                <span className="font-mono text-white/70">{shortHash(match.serverSeedHash, 10, 6)}</span>
+                <span className="font-mono text-white/70">
+                  {shortHash(match.serverSeedHash, 10, 6)}
+                </span>
               </div>
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[var(--t-muted)]">Nonce</span>
@@ -180,15 +182,13 @@ export function FairnessPanel({ clientSeed, match, busy, onRegenerate }: Fairnes
                 {verification.hmacHex}
               </p>
               <p className="mt-1 tabular-nums">
-                uniform {verification.uniform} · expected {verification.expectedCrashMultiplierX100} ·
-                stored {verification.storedCrashMultiplierX100}
+                uniform {verification.uniform} · expected {verification.expectedCrashMultiplierX100}{' '}
+                · stored {verification.storedCrashMultiplierX100}
               </p>
             </div>
           ) : null}
         </div>
       </div>
-
-     
-    </section>
+    </details>
   )
 }

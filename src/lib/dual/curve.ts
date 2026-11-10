@@ -16,10 +16,7 @@ export function multiplierX100AtElapsed(elapsedMs: number): number {
 /** Flight time needed to reach a multiplier (hundredths). */
 export function elapsedMsForMultiplierX100(multiplierX100: number): number {
   if (!Number.isFinite(multiplierX100) || multiplierX100 <= 100) return 0
-  return Math.max(
-    0,
-    (Math.log(multiplierX100 / 100) / DUAL_GROWTH_RATE_PER_SECOND) * 1_000,
-  )
+  return Math.max(0, (Math.log(multiplierX100 / 100) / DUAL_GROWTH_RATE_PER_SECOND) * 1_000)
 }
 
 /** Formats 234 -> "2.34x". */

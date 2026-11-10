@@ -1,12 +1,14 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { DUAL_GROWTH_RATE_PER_SECOND, DUAL_MAX_MULTIPLIER_X100 } from '@/lib/dual/config'
 import {
-  DUAL_GROWTH_RATE_PER_SECOND,
-  DUAL_MAX_MULTIPLIER_X100,
-} from '@/lib/dual/config'
-import { elapsedMsForMultiplierX100, formatMultiplier, multiplierX100AtElapsed } from '@/lib/dual/curve'
+  elapsedMsForMultiplierX100,
+  formatMultiplier,
+  multiplierX100AtElapsed,
+} from '@/lib/dual/curve'
 import type { DualStatus } from '@/lib/dual/types'
+import { ChartRocket } from './chart-rocket'
 
 type CrashStageProps = {
   status: DualStatus
@@ -91,9 +93,7 @@ export function CrashStage({
 
       let target = props.currentMultiplierX100
       if (running) {
-        target = multiplierX100AtElapsed(
-          Date.now() + offset - new Date(props.startsAt!).getTime(),
-        )
+        target = multiplierX100AtElapsed(Date.now() + offset - new Date(props.startsAt!).getTime())
         target = Math.min(target, DUAL_MAX_MULTIPLIER_X100)
       } else if (props.status === 'SETTLED' || props.status === 'INTERMISSION') {
         target = props.crashMultiplierX100 ?? props.currentMultiplierX100
@@ -140,20 +140,28 @@ export function CrashStage({
   let curve = ''
   let lastX = MARGIN_X
   let lastY = HEIGHT - MARGIN_Y
+  let prevX = MARGIN_X
+  let prevY = HEIGHT - MARGIN_Y
 
   for (let index = 0; index <= POINTS; index++) {
+    prevX = lastX
+    prevY = lastY
     const progress = index / POINTS
     const t = effectiveElapsed * progress
     const multiplier = Math.exp(DUAL_GROWTH_RATE_PER_SECOND * (t / 1_000))
     const x = MARGIN_X + PLOT_W * progress
     const y =
-      HEIGHT -
-      MARGIN_Y -
-      Math.min(1, Math.max(0, (multiplier - 1) / (maxMultiplier - 1))) * PLOT_H
+      HEIGHT - MARGIN_Y - Math.min(1, Math.max(0, (multiplier - 1) / (maxMultiplier - 1))) * PLOT_H
     curve += `${index === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)} `
     lastX = x
     lastY = y
   }
+
+  // Tangent at the tip, so the rocket nose follows the line it is riding.
+  const angleDeg = Math.min(
+    78,
+    Math.max(10, (Math.atan2(lastX - prevX, prevY - lastY) * 180) / Math.PI),
+  )
 
   const area = `${curve} L ${lastX.toFixed(1)} ${(HEIGHT - MARGIN_Y).toFixed(1)} L ${MARGIN_X} ${(HEIGHT - MARGIN_Y).toFixed(1)} Z`
 
@@ -176,10 +184,10 @@ export function CrashStage({
     : status === 'CANCELLED'
       ? 'CANCELLED'
       : status === 'RUNNING'
-      ? 'LIVE MULTIPLIER'
-      : status === 'COUNTDOWN'
-        ? 'LAUNCHING'
-        : 'MULTIPLIER'
+        ? 'LIVE MULTIPLIER'
+        : status === 'COUNTDOWN'
+          ? 'LAUNCHING'
+          : 'MULTIPLIER'
 
   return (
     <div className="dual-stage relative isolate overflow-hidden rounded-2xl border border-white/[0.06]">
@@ -209,115 +217,109 @@ export function CrashStage({
         ) : null}
       </div>
 
-      <svg
-        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-        className="relative z-10 block h-[300px] w-full sm:h-[340px]"
-        role="img"
-        aria-label={`Rocket multiplier chart at ${formatMultiplier(displayX100)}`}
-        preserveAspectRatio="none"
-      >
-        <defs>
-          <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="#0fd486" stopOpacity="0.25" />
-            <stop offset="55%" stopColor={accent} stopOpacity="0.95" />
-            <stop offset="100%" stopColor={accent} />
-          </linearGradient>
-          <linearGradient id={areaId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={accent} stopOpacity="0.24" />
-            <stop offset="100%" stopColor={accent} stopOpacity="0" />
-          </linearGradient>
-          <filter id={glowId} x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="5" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
+      <div className="relative z-10">
+        <svg
+          viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+          className="block h-[300px] w-full sm:h-[340px]"
+          role="img"
+          aria-label={`Rocket multiplier chart at ${formatMultiplier(displayX100)}`}
+          preserveAspectRatio="none"
+        >
+          <defs>
+            <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor="#0fd486" stopOpacity="0.25" />
+              <stop offset="55%" stopColor={accent} stopOpacity="0.95" />
+              <stop offset="100%" stopColor={accent} />
+            </linearGradient>
+            <linearGradient id={areaId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={accent} stopOpacity="0.24" />
+              <stop offset="100%" stopColor={accent} stopOpacity="0" />
+            </linearGradient>
+            <filter id={glowId} x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="5" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
 
-        {[0.25, 0.5, 0.75].map((ratio) => (
+          {[0.25, 0.5, 0.75].map((ratio) => (
+            <line
+              key={ratio}
+              x1={MARGIN_X}
+              x2={WIDTH - MARGIN_X}
+              y1={MARGIN_Y + PLOT_H * ratio}
+              y2={MARGIN_Y + PLOT_H * ratio}
+              stroke="rgba(255,255,255,0.055)"
+              strokeDasharray="4 8"
+            />
+          ))}
+          {[0.2, 0.4, 0.6, 0.8].map((ratio) => (
+            <line
+              key={ratio}
+              x1={MARGIN_X + PLOT_W * ratio}
+              x2={MARGIN_X + PLOT_W * ratio}
+              y1={MARGIN_Y}
+              y2={HEIGHT - MARGIN_Y}
+              stroke="rgba(255,255,255,0.035)"
+            />
+          ))}
           <line
-            key={ratio}
             x1={MARGIN_X}
             x2={WIDTH - MARGIN_X}
-            y1={MARGIN_Y + PLOT_H * ratio}
-            y2={MARGIN_Y + PLOT_H * ratio}
-            stroke="rgba(255,255,255,0.055)"
-            strokeDasharray="4 8"
-          />
-        ))}
-        {[0.2, 0.4, 0.6, 0.8].map((ratio) => (
-          <line
-            key={ratio}
-            x1={MARGIN_X + PLOT_W * ratio}
-            x2={MARGIN_X + PLOT_W * ratio}
-            y1={MARGIN_Y}
+            y1={HEIGHT - MARGIN_Y}
             y2={HEIGHT - MARGIN_Y}
-            stroke="rgba(255,255,255,0.035)"
+            stroke="rgba(255,255,255,0.12)"
           />
-        ))}
-        <line
-          x1={MARGIN_X}
-          x2={WIDTH - MARGIN_X}
-          y1={HEIGHT - MARGIN_Y}
-          y2={HEIGHT - MARGIN_Y}
-          stroke="rgba(255,255,255,0.12)"
-        />
 
-        {stars.map((star) => (
-          <circle
-            key={star.id}
-            cx={star.x}
-            cy={star.y}
-            r={star.r}
-            fill="white"
-            opacity={star.opacity}
-            className="dual-star"
-            style={{ animationDelay: `${star.delay}s` }}
+          {stars.map((star) => (
+            <circle
+              key={star.id}
+              cx={star.x}
+              cy={star.y}
+              r={star.r}
+              fill="white"
+              opacity={star.opacity}
+              className="dual-star"
+              style={{ animationDelay: `${star.delay}s` }}
+            />
+          ))}
+
+          <path d={area} fill={`url(#${areaId})`} />
+          <path
+            d={curve}
+            fill="none"
+            stroke={`url(#${gradientId})`}
+            strokeWidth="3.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            filter={ended ? undefined : `url(#${glowId})`}
+            className="dual-trail"
           />
-        ))}
 
-        <path d={area} fill={`url(#${areaId})`} />
-        <path
-          d={curve}
-          fill="none"
-          stroke={`url(#${gradientId})`}
-          strokeWidth="3.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          filter={ended ? undefined : `url(#${glowId})`}
-          className="dual-trail"
+          {ended ? (
+            <g
+              key={`${round}-${status}`}
+              transform={`translate(${lastX.toFixed(1)} ${lastY.toFixed(1)})`}
+            >
+              <g className="dual-burst">
+                <circle r="18" fill="none" stroke="#ff6b7c" strokeWidth="2" opacity="0.8" />
+                <circle r="34" fill="none" stroke="#ff8a00" strokeWidth="1.5" opacity="0.5" />
+                <circle r="52" fill="none" stroke="#ffdf1a" strokeWidth="1" opacity="0.3" />
+                <circle r="7" fill="#ff6b7c" />
+              </g>
+            </g>
+          ) : null}
+        </svg>
+
+        <ChartRocket
+          leftPct={(lastX / WIDTH) * 100}
+          topPct={(lastY / HEIGHT) * 100}
+          angleDeg={angleDeg}
+          crashed={ended}
         />
-
-        {!ended ? (
-          <g transform={`translate(${lastX.toFixed(1)} ${lastY.toFixed(1)}) rotate(35)`}>
-            <g className="dual-rocket">
-              <path
-                d="M0 -18 C10 -8 10 5 0 17 C-10 5 -10 -8 0 -18Z"
-                fill="#f8fbff"
-                stroke="rgba(0,0,0,0.18)"
-                strokeWidth="0.6"
-              />
-              <path d="M-7 8 L-14 18 L-5 15Z" fill="#ff8a00" />
-              <path d="M7 8 L14 18 L5 15Z" fill="#ff8a00" />
-              <circle cx="0" cy="-3" r="3.2" fill="#0b1220" stroke="#8fe9ff" strokeWidth="1" />
-              <path d="M0 17 L-3.5 26 L0 23.5 L3.5 26Z" fill="#ffdf1a" className="dual-flame" />
-            </g>
-          </g>
-        ) : (
-          <g
-            key={`${round}-${status}`}
-            transform={`translate(${lastX.toFixed(1)} ${lastY.toFixed(1)})`}
-          >
-            <g className="dual-burst">
-              <circle r="18" fill="none" stroke="#ff6b7c" strokeWidth="2" opacity="0.8" />
-              <circle r="34" fill="none" stroke="#ff8a00" strokeWidth="1.5" opacity="0.5" />
-              <circle r="52" fill="none" stroke="#ffdf1a" strokeWidth="1" opacity="0.3" />
-              <circle r="7" fill="#ff6b7c" />
-            </g>
-          </g>
-        )}
-      </svg>
+      </div>
 
       {status === 'COUNTDOWN' ? (
         <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-[#050914]/55 backdrop-blur-[2px]">
@@ -336,7 +338,12 @@ export function CrashStage({
         </div>
       ) : null}
 
-      {ended ? <div className="dual-crash-flash pointer-events-none absolute inset-0 z-20" aria-hidden="true" /> : null}
+      {ended ? (
+        <div
+          className="dual-crash-flash pointer-events-none absolute inset-0 z-20"
+          aria-hidden="true"
+        />
+      ) : null}
     </div>
   )
 }

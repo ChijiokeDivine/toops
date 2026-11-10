@@ -1,9 +1,9 @@
-import { ChatIcon, HeadsetIcon, SearchIcon } from './icons'
+import { ChatIcon, SearchIcon } from './icons'
 
 const ACTIONS = [
   { label: 'Open chat', Icon: ChatIcon },
   { label: 'Search', Icon: SearchIcon },
-  { label: 'Support', Icon: HeadsetIcon },
+
 ]
 
 /** Desktop-only floating buttons, bottom right. */

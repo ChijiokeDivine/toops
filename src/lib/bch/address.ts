@@ -46,4 +46,3 @@ export function toTokenAwareAddress(
   if (typeof encoded === 'string') throw new Error(`Unable to encode token address: ${encoded}`)
   return encoded.address
 }
-

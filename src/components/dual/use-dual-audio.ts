@@ -2,15 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-export type DualSound =
-  | 'tick'
-  | 'launch'
-  | 'cashout'
-  | 'crash'
-  | 'win'
-  | 'lose'
-  | 'queue'
-  | 'click'
+export type DualSound = 'tick' | 'launch' | 'cashout' | 'crash' | 'win' | 'lose' | 'queue' | 'click'
 
 type AudioContextCtor = typeof AudioContext
 
@@ -68,10 +60,7 @@ export function useDualAudio() {
       oscillator.type = options.type ?? 'sine'
       oscillator.frequency.setValueAtTime(options.frequency, start)
       if (options.endFrequency != null) {
-        oscillator.frequency.exponentialRampToValueAtTime(
-          Math.max(1, options.endFrequency),
-          end,
-        )
+        oscillator.frequency.exponentialRampToValueAtTime(Math.max(1, options.endFrequency), end)
       }
       gain.gain.setValueAtTime(0.0001, start)
       gain.gain.exponentialRampToValueAtTime(options.volume ?? 0.05, start + 0.012)

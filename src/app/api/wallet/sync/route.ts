@@ -35,6 +35,7 @@ export async function POST() {
     return NextResponse.json({
       ok: true,
       newDeposits: result.newDeposits,
+      pendingDeposits: result.pendingDeposits,
       creditedPusd: formatPusdUnits(result.creditedPusd),
       swappedDeposits: result.swappedDeposits,
       scannedTransactions: result.scannedTransactions,

@@ -1,10 +1,7 @@
 import 'server-only'
 
 import { createHash, createHmac, randomBytes } from 'node:crypto'
-import {
-  DUAL_MAX_MULTIPLIER_X100,
-  DUAL_MIN_MULTIPLIER_X100,
-} from './config'
+import { DUAL_MAX_MULTIPLIER_X100, DUAL_MIN_MULTIPLIER_X100 } from './config'
 
 const TWO_POW_32 = 1n << 32n
 
@@ -39,7 +36,11 @@ export type CrashResult = {
  * Integer math avoids float drift. The result is floored to two decimals,
  * clamped to 1.01x minimum and 100,000x maximum.
  */
-export function computeCrash(serverSeed: string, clientSeeds: string[], nonce: number): CrashResult {
+export function computeCrash(
+  serverSeed: string,
+  clientSeeds: string[],
+  nonce: number,
+): CrashResult {
   const message = `${[...clientSeeds].sort().join(':')}:${nonce}`
   const hmacHex = createHmac('sha256', serverSeed).update(message).digest('hex')
   const uniform = Number.parseInt(hmacHex.slice(0, 8), 16)

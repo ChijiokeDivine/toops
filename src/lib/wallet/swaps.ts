@@ -12,7 +12,10 @@ const FEE_RATE_SATS_PER_BYTE = 1.2
 const SWAP_FEE_BUFFER_SATS = 3_000n
 
 export class SwapError extends Error {
-  constructor(message: string, readonly status = 502) {
+  constructor(
+    message: string,
+    readonly status = 502,
+  ) {
     super(message)
     this.name = 'SwapError'
   }
@@ -58,8 +61,10 @@ export async function swapBchToPusd(params: {
   platformAddress: string
   derivationIndex: number
   bchSats: bigint
+  /** Restrict the swap to one deposit outpoint instead of the whole wallet. */
+  utxo?: { txid: string; vout: number; satoshis: bigint }
 }): Promise<BuyPusdResult> {
-  const { platformAddress, derivationIndex, bchSats } = params
+  const { platformAddress, derivationIndex, bchSats, utxo } = params
   if (bchSats <= SWAP_FEE_BUFFER_SATS) {
     throw new SwapError('Deposit is too small to swap', 400)
   }
@@ -84,7 +89,7 @@ export async function swapBchToPusd(params: {
           tokenAddress,
           privateKey,
           electrum as never,
-          undefined,
+          utxo ? [utxo] : undefined,
           FEE_RATE_SATS_PER_BYTE,
         )
 

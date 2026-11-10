@@ -34,8 +34,19 @@ export const DUAL_GROWTH_RATE_PER_SECOND = 0.22
 export const DUAL_READY_TIMEOUT_MS = 60_000
 /** Once both are ready, the rocket launches after this. */
 export const DUAL_COUNTDOWN_MS = 6_000
-/** A player who stops polling this long before launch causes a refund. */
-export const DUAL_DISCONNECT_GRACE_MS = 5_000
+/**
+ * How long a player may go without a heartbeat before the server treats them as
+ * gone. Kept generous on purpose: a slow database, a retried request or a
+ * background browser tab can easily delay a poll by several seconds, and
+ * refunding a match that is still alive is worse than waiting a little longer.
+ */
+export const DUAL_DISCONNECT_GRACE_MS = 20_000
+/**
+ * If a player is still missing when the countdown expires, hold the launch and
+ * wait this long for them before refunding. The countdown restarts each time we
+ * see them again, so the round only launches once both clients are present.
+ */
+export const DUAL_LAUNCH_HOLD_MS = 45_000
 /** How long the crash result is shown before an automatic both-bust replay. */
 export const DUAL_INTERMISSION_MS = 6_000
 /** A queued ticket is refunded after this long without a match. */
@@ -44,5 +55,7 @@ export const DUAL_QUEUE_TTL_MS = 5 * 60_000
 /** Client polling cadence. */
 export const DUAL_POLL_RUNNING_MS = 400
 export const DUAL_POLL_IDLE_MS = 1_000
+/** Independent presence ping cadence while a match is open. */
+export const DUAL_HEARTBEAT_MS = 4_000
 
 export const DUAL_MAX_DISPUTE_REASON_LENGTH = 500

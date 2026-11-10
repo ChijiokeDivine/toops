@@ -7,6 +7,7 @@ import {
 } from '@bitauth/libauth'
 import type { DappConnectionManager } from '@wizardconnect/dapp'
 import { AlphanumericQRCode, useWizardConnect } from '@wizardconnect/react'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { CopyButton } from './copy-button'
@@ -202,13 +203,23 @@ export function WizardConnectLogin({ mode, onSuccess }: WizardConnectLoginProps)
             <p className="text-sm font-semibold text-white">Scan with your wallet</p>
             <CopyButton value={uri} label="Copy link" />
           </div>
-          <div className="mt-3 flex justify-center rounded-lg bg-white p-3">
+          <div className="relative mt-3 flex justify-center rounded-lg bg-white p-3">
             <AlphanumericQRCode
               value={qrUri}
               size={240}
               foreground="#1e2a4a"
               background="#ffffff"
             />
+            {/* The library draws its own logo in the middle; this covers it with the toops mark. */}
+            <span className="pointer-events-none absolute left-1/2 top-1/2 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-lg bg-white ring-4 ring-white">
+              <Image
+                src="/images/gamepad.png"
+                alt="toops"
+                width={48}
+                height={48}
+                className="h-12 w-12 object-contain"
+              />
+            </span>
           </div>
           <div className="mt-3 flex items-center justify-between gap-2">
             <p className="text-xs text-[var(--t-muted)]">
@@ -227,7 +238,7 @@ export function WizardConnectLogin({ mode, onSuccess }: WizardConnectLoginProps)
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center justify-center gap-2">
         <button
           type="button"
           onClick={() => {

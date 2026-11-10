@@ -34,8 +34,6 @@ export function Hero() {
         {/* faint ghost marks */}
       </div>
 
-
-
       <div className="mt-5 flex w-full flex-col items-center lg:mt-auto lg:items-start">
         <h1 className="text-[30px] font-bold leading-[1.1] tracking-tight text-white lg:text-[34px]">
           This Is Your Kingdom

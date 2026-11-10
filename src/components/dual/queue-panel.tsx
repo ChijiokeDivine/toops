@@ -30,7 +30,13 @@ export function QueuePanel({ stakePusd, expiresAt, onCancel, busy }: QueuePanelP
 
       <div className="relative flex flex-col items-center text-center">
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#00fa7f]/25 bg-[#00fa7f]/10">
-          <svg viewBox="0 0 24 24" className="h-6 w-6 text-[#00fa7f]" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <svg
+            viewBox="0 0 24 24"
+            className="h-6 w-6 text-[#00fa7f]"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+          >
             <circle cx="12" cy="12" r="8.5" opacity="0.45" />
             <circle cx="12" cy="12" r="4.5" opacity="0.7" />
             <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" />
@@ -45,9 +51,7 @@ export function QueuePanel({ stakePusd, expiresAt, onCancel, busy }: QueuePanelP
 
         <div className="mt-4 flex items-center gap-2 rounded-xl border border-white/[0.07] bg-[#070b13]/70 px-3 py-2">
           <span className="h-2 w-2 animate-pulse rounded-full bg-[#00fa7f]" />
-          <span className="text-[12px] font-semibold text-white">
-            {usd(stakePusd)} locked
-          </span>
+          <span className="text-[12px] font-semibold text-white">{usd(stakePusd)} locked</span>
           <span className="text-white/20">·</span>
           <span className="text-[11px] tabular-nums text-[var(--t-muted)]">
             auto-refund in {formatClock(remaining)}
@@ -64,8 +68,8 @@ export function QueuePanel({ stakePusd, expiresAt, onCancel, busy }: QueuePanelP
         </button>
 
         <p className="mt-3 text-[10px] text-[var(--t-muted)]">
-          Stake is held in your PUSD balance until a match is found. No fee is charged for waiting or
-          cancelling.
+          Stake is held in your PUSD balance until a match is found. No fee is charged for waiting
+          or cancelling.
         </p>
       </div>
     </section>

@@ -38,7 +38,7 @@ export function HistoryPanel({ refreshKey }: { refreshKey: string }) {
   if (!matches || matches.length === 0) return null
 
   return (
-    <section className="dual-card p-4 sm:p-5">
+    <section className="dual-card p-4 sm:p-5 bg-[#050910]">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold text-white">Your last rounds</h2>
         <span className="text-[10px] uppercase tracking-[0.16em] text-[var(--t-muted)]">
@@ -70,7 +70,9 @@ export function HistoryPanel({ refreshKey }: { refreshKey: string }) {
               <span className={`font-semibold ${tone}`}>
                 {label}
                 {match.replayCount > 0 ? (
-                  <span className="ml-1 text-[9px] font-normal text-white/35">R{match.replayCount}</span>
+                  <span className="ml-1 text-[9px] font-normal text-white/35">
+                    R{match.replayCount}
+                  </span>
                 ) : null}
               </span>
               <span className="text-right text-white/65">{usd(match.stakePusd)}</span>

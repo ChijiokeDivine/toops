@@ -82,7 +82,7 @@ export function TelegramLogin({ botUsername, onSuccess }: TelegramLoginProps) {
 
   return (
     <div className="space-y-3">
-      <div ref={containerRef} className="min-h-[44px]" />
+      <div ref={containerRef} className="min-h-[44px] flex align-center justify-center" />
       {pending && <p className="text-sm text-[var(--t-muted)]">Verifying Telegram…</p>}
       {error && <p className="text-sm text-red-400">{error}</p>}
       <p className="text-xs text-[var(--t-muted)]">

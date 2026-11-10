@@ -7,7 +7,7 @@ import { getPusdRate } from '@/lib/pusd-server'
 import { getMinimumWithdrawalPusd, getWithdrawalFeePusd } from '@/lib/wallet/withdrawals'
 import { getPlatformTokenAddress } from '@/lib/wallet/platform-wallet'
 import { utcDayKey } from '@/lib/xp'
-import { KingOfTheHill } from './king-of-the-hill'
+
 import { Logo } from './logo'
 
 const NAV = [
@@ -56,7 +56,6 @@ export async function SiteHeader() {
         </nav>
 
         <div className="ml-auto flex items-center">
-          <KingOfTheHill />
           {user ? (
             <AccountNav
               name={name}

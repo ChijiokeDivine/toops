@@ -2,6 +2,10 @@ import { resolve } from 'node:path'
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
+  // Dev-only: allow the HMR websocket when the app is opened through these
+  // hosts instead of `localhost`. Without this, the client keeps running stale
+  // code after a change or restart.
+  allowedDevOrigins: ['127.0.0.1'],
   turbopack: {
     root: resolve('.'),
   },

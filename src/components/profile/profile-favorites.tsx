@@ -18,7 +18,7 @@ export function ProfileFavorites() {
           href="/"
           className="mt-1 text-sm font-semibold text-[var(--t-green)] transition hover:brightness-110"
         >
-          Browse games 
+          Browse games
         </Link>
       </div>
     </section>

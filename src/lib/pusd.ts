@@ -37,9 +37,7 @@ export function formatPusdUnits(units: bigint): string {
   const negative = units < 0n
   const absolute = negative ? -units : units
   const whole = absolute / PUSD_BASE_UNITS_PER_PUSD
-  const fraction = (absolute % PUSD_BASE_UNITS_PER_PUSD)
-    .toString()
-    .padStart(PUSD_DECIMALS, '0')
+  const fraction = (absolute % PUSD_BASE_UNITS_PER_PUSD).toString().padStart(PUSD_DECIMALS, '0')
   return `${negative ? '-' : ''}${whole}.${fraction}`
 }
 

@@ -4,13 +4,7 @@
  */
 
 export type DualStatus =
-  | 'WAITING'
-  | 'COUNTDOWN'
-  | 'RUNNING'
-  | 'SETTLING'
-  | 'SETTLED'
-  | 'INTERMISSION'
-  | 'CANCELLED'
+  'WAITING' | 'COUNTDOWN' | 'RUNNING' | 'SETTLING' | 'SETTLED' | 'INTERMISSION' | 'CANCELLED'
 
 export type DualPlayerView = {
   userId: string

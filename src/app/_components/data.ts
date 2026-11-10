@@ -17,7 +17,13 @@ export const CATEGORIES: Category[] = [
     href: '/multiplayer',
     image: '/images/multiplayer.webp',
   },
-  { slug: 'dual', title: 'Dual', playing: 1660, href: '/originals/crash', image: '/images/dual.webp' },
+  {
+    slug: 'dual',
+    title: 'Dual',
+    playing: 1660,
+    href: '/originals/crash',
+    image: '/images/dual.webp',
+  },
 ]
 
 export type Game = {

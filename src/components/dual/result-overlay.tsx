@@ -35,9 +35,7 @@ export function ResultOverlay({
         { cache: 'no-store' },
       )
       const data = (await response.json().catch(() => null)) as
-        | DualVerifyResponse
-        | { error?: string }
-        | null
+        DualVerifyResponse | { error?: string } | null
       if (!response.ok) {
         setVerifyError((data as { error?: string } | null)?.error ?? 'Verification failed.')
         return
@@ -64,7 +62,13 @@ export function ResultOverlay({
         {cancelled ? (
           <div className="p-5 text-center">
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-white/[0.04]">
-              <svg viewBox="0 0 24 24" className="h-6 w-6 text-white/60" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <svg
+                viewBox="0 0 24 24"
+                className="h-6 w-6 text-white/60"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+              >
                 <path d="M6 6l12 12M18 6 6 18" strokeLinecap="round" />
               </svg>
             </div>
@@ -102,12 +106,18 @@ export function ResultOverlay({
               />
               <p className="text-[10px] font-semibold uppercase tracking-[0.26em] text-white/45">
                 Round {match.round}
-                {match.replayCount > 0 ? ` · ${match.replayCount} replay${match.replayCount === 1 ? '' : 's'}` : ''}
+                {match.replayCount > 0
+                  ? ` · ${match.replayCount} replay${match.replayCount === 1 ? '' : 's'}`
+                  : ''}
               </p>
-              <h3 className={`mt-1 text-[26px] font-black ${won ? 'text-[#ffdf1a]' : 'text-white'}`}>
+              <h3
+                className={`mt-1 text-[26px] font-black ${won ? 'text-[#ffdf1a]' : 'text-white'}`}
+              >
                 {won ? 'You won the pot' : 'Opponent took the pot'}
               </h3>
-              <p className={`mt-1 text-3xl font-black tabular-nums ${won ? 'text-white' : 'text-white/55'}`}>
+              <p
+                className={`mt-1 text-3xl font-black tabular-nums ${won ? 'text-white' : 'text-white/55'}`}
+              >
                 {won ? usd(match.payoutPusd) : usd('0.00')}
               </p>
               <p className="mt-1 text-[11px] text-[var(--t-muted)]">
@@ -120,15 +130,23 @@ export function ResultOverlay({
             <div className="grid grid-cols-3 gap-px border-y border-white/[0.06] bg-white/[0.05] text-center">
               <div className="bg-[#0c1320] px-2 py-2.5">
                 <p className="text-[9px] uppercase tracking-[0.14em] text-[var(--t-muted)]">Pot</p>
-                <p className="mt-0.5 text-[12px] font-bold tabular-nums text-white">{usd(match.potPusd)}</p>
+                <p className="mt-0.5 text-[12px] font-bold tabular-nums text-white">
+                  {usd(match.potPusd)}
+                </p>
               </div>
               <div className="bg-[#0c1320] px-2 py-2.5">
-                <p className="text-[9px] uppercase tracking-[0.14em] text-[var(--t-muted)]">1% fee</p>
-                <p className="mt-0.5 text-[12px] font-bold tabular-nums text-white">{usd(match.feePusd)}</p>
+                <p className="text-[9px] uppercase tracking-[0.14em] text-[var(--t-muted)]">
+                  1% fee
+                </p>
+                <p className="mt-0.5 text-[12px] font-bold tabular-nums text-white">
+                  {usd(match.feePusd)}
+                </p>
               </div>
               <div className="bg-[#0c1320] px-2 py-2.5">
                 <p className="text-[9px] uppercase tracking-[0.14em] text-[var(--t-muted)]">Paid</p>
-                <p className="mt-0.5 text-[12px] font-bold tabular-nums text-[#00fa7f]">{usd(match.payoutPusd)}</p>
+                <p className="mt-0.5 text-[12px] font-bold tabular-nums text-[#00fa7f]">
+                  {usd(match.payoutPusd)}
+                </p>
               </div>
             </div>
 
@@ -239,7 +257,9 @@ export function ResultOverlay({
                 <div className="mt-2 rounded-lg border border-white/[0.06] bg-[#070b13]/80 p-2.5 text-[10px] leading-relaxed text-white/60">
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-semibold text-white/80">
-                      {verification.hashMatches && verification.crashMatches ? '✓ Verified' : '✗ Mismatch'}
+                      {verification.hashMatches && verification.crashMatches
+                        ? '✓ Verified'
+                        : '✗ Mismatch'}
                     </span>
                     <button
                       type="button"

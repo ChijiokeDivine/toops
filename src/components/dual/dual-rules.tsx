@@ -48,44 +48,43 @@ const FAQ = [
 export function DualRules() {
   return (
     <div className="mt-4 space-y-3">
-      <section id="rules" className="dual-card p-4 sm:p-5">
-        <div className="flex flex-wrap items-center justify-between gap-2">
+      <details id="rules" className="dual-card group/section p-4 sm:p-5 bg-[#050910]">
+        <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2">
           <div>
             <h2 className="text-lg font-bold text-white">How Dual Crash works</h2>
-            <p className="mt-0.5 text-[12px] text-[var(--t-muted)]">
-              Everything is server-authoritative. The UI only animates between polls.
-            </p>
+           
           </div>
-          <span className="rounded-full border border-white/[0.08] bg-white/[0.03] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.16em] text-white/50">
-            Rules
+          <span className="shrink-0 text-2xl leading-none text-white/40 transition group-open/section:rotate-45">
+            ＋
           </span>
-        </div>
+        </summary>
 
         <ol className="mt-4 grid gap-2.5 sm:grid-cols-2">
           {RULES.map((rule, index) => (
-            <li
-              key={rule.title}
-              className="rounded-xl"
-            >
+            <li key={rule.title} className="rounded-xl">
               <div className="flex items-center gap-2">
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg  text-[#ffffff]">
                   {index + 1}
                 </span>
                 <h3 className="text-[13px] font-bold text-white">{rule.title}</h3>
               </div>
-              <p className="mt-1.5 text-[11px] leading-relaxed text-[var(--t-muted)]">{rule.body}</p>
+              <p className="mt-1.5 text-[11px] leading-relaxed text-[var(--t-muted)]">
+                {rule.body}
+              </p>
             </li>
           ))}
         </ol>
-      </section>
+      </details>
 
       <div className="grid gap-3 ">
-        <section className="dual-card p-4 sm:p-5">
-          <h2 className="text-lg font-bold text-white">Payouts &amp; fees</h2>
-          <p className="mt-1 text-[12px] leading-relaxed text-[var(--t-muted)]">
-            Both stakes form one pot. The platform fee is 1% of the pot, rounded down to the nearest
-            PUSD base unit. The winner receives the rest.
-          </p>
+        <details className="dual-card group/section p-4 sm:p-5 bg-[#050910]">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-2">
+            <h2 className="text-lg font-bold text-white">Payouts &amp; fees</h2>
+            <span className="shrink-0 text-2xl leading-none text-white/40 transition group-open/section:rotate-45">
+              ＋
+            </span>
+          </summary>
+         
 
           <div className="mt-3 overflow-hidden rounded-xl border border-white/[0.06]">
             <div className="grid grid-cols-4 gap-2 bg-white/[0.04] px-3 py-2 text-[9px] font-semibold uppercase tracking-[0.1em] text-[var(--t-muted)]">
@@ -114,17 +113,22 @@ export function DualRules() {
 
           <ul className="mt-3 space-y-1.5 text-[11px] leading-relaxed text-[var(--t-muted)]">
             <li>• No fee on a cancelled match or a both-bust replay.</li>
-            <li>• The fee is taken from the pot when a winner is paid, never from a single player.</li>
+            <li>
+              • The fee is taken from the pot when a winner is paid, never from a single player.
+            </li>
             <li>• PUSD is a 2-decimal CashToken, so every amount is exact to the base unit.</li>
-            <li>• Maximum multiplier cap: 100,000.00x.</li>
+           
           </ul>
-        </section>
-
-
+        </details>
       </div>
 
-      <section className="dual-card p-4 sm:p-5">
-        <h2 className="text-lg font-bold text-white">Edge cases</h2>
+      <details className="dual-card group/section p-4 sm:p-5 bg-[#050910]">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2">
+          <h2 className="text-lg font-bold text-white">Edge cases</h2>
+          <span className="shrink-0 text-2xl leading-none text-white/40 transition group-open/section:rotate-45">
+            ＋
+          </span>
+        </summary>
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
           {FAQ.map((item) => (
             <details
@@ -135,11 +139,13 @@ export function DualRules() {
                 {item.question}
                 <span className="text-white/30 transition group-open:rotate-45">＋</span>
               </summary>
-              <p className="mt-2 text-[11px] leading-relaxed text-[var(--t-muted)]">{item.answer}</p>
+              <p className="mt-2 text-[11px] leading-relaxed text-[var(--t-muted)]">
+                {item.answer}
+              </p>
             </details>
           ))}
         </div>
-      </section>
+      </details>
     </div>
   )
 }

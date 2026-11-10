@@ -69,6 +69,7 @@ export function AccountWalletPanel({
 
       const data = (await response.json()) as {
         newDeposits: number
+        pendingDeposits: number
         creditedPusd: string
         swappedDeposits: number
       }
@@ -76,6 +77,9 @@ export function AccountWalletPanel({
         const swapped =
           data.swappedDeposits > 0 ? ` (${data.swappedDeposits} swapped BCH → PUSD)` : ''
         setSyncMessage(`Credited ${data.creditedPusd} PUSD${swapped}.`)
+      } else if (data.pendingDeposits > 0) {
+        const label = data.pendingDeposits === 1 ? 'deposit' : 'deposits'
+        setSyncMessage(`${data.pendingDeposits} ${label} detected, waiting for confirmation.`)
       } else {
         setSyncMessage('No new deposits found.')
       }
@@ -165,9 +169,7 @@ export function AccountWalletPanel({
             <p className="mt-1 text-3xl font-semibold text-white">
               {balancePusd} <span className="text-sm font-medium text-[var(--t-muted)]">PUSD</span>
             </p>
-            <p className="text-xs text-[var(--t-muted)]">
-              ParyonUSD stablecoin, redeemable for BCH.
-            </p>
+            
           </div>
 
           <div className={card}>
