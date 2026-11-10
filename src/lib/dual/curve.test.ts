@@ -23,6 +23,13 @@ describe('rocket curve', () => {
     }
   })
 
+  it('keeps the flight watchable and the cash-out window open', () => {
+    // The rocket has to be flown, not teleported: a typical 2.00x round must
+    // last long enough to see and to press "cash out".
+    expect(elapsedMsForMultiplierX100(200)).toBeGreaterThanOrEqual(8_000)
+    expect(elapsedMsForMultiplierX100(110)).toBeGreaterThanOrEqual(1_000)
+  })
+
   it('formats multipliers with two decimals', () => {
     expect(formatMultiplier(100)).toBe('1.00x')
     expect(formatMultiplier(234)).toBe('2.34x')

@@ -441,17 +441,22 @@ function buildMatchView(match: MatchWithPlayers, userId: string, now: Date): Dua
   })
 
   const selfPlayer = self
+  // Past `startsAt` the rocket is already flying even if no request has moved
+  // the match to RUNNING yet, so the cash-out window is open too.
+  const countdownPastStart =
+    status === 'COUNTDOWN' && startsAtMs != null && now.getTime() >= startsAtMs
+  const cashoutWindowOpen = status === 'RUNNING' || countdownPastStart
   const selfCashedOut = selfPlayer
-    ? status === 'RUNNING' || isRevealed
+    ? cashoutWindowOpen || isRevealed
       ? selfPlayer.cashoutAt != null
       : false
     : false
 
   const canCashOut =
-    status === 'RUNNING' &&
+    cashoutWindowOpen &&
     selfPlayer != null &&
     !selfCashedOut &&
-    now.getTime() < (match.crashAt?.getTime() ?? 0)
+    (match.crashAt == null || now.getTime() < match.crashAt.getTime())
 
   return {
     id: match.id,
@@ -645,12 +650,41 @@ export async function cashOut(
 
     const player = match.players.find((entry) => entry.userId === userId)
     if (!player) throw new DualError('You are not in this match.', 403, 'NOT_A_PLAYER')
-    if (match.status !== 'RUNNING' || !match.startsAt || !match.crashAt) {
+
+    const now = new Date()
+    let crashAt = match.crashAt
+
+    if (match.status === 'COUNTDOWN') {
+      // The browser starts the flight from `startsAt` instead of waiting for a
+      // poll to flip the match to RUNNING. Apply that transition here so a press
+      // in the first seconds of a round is not rejected as NOT_RUNNING.
+      if (!match.startsAt || now.getTime() < match.startsAt.getTime()) {
+        throw new DualError('The rocket has not launched yet.', 409, 'NOT_RUNNING')
+      }
+      if (match.crashMultiplierX100 == null) {
+        throw new DualError('The round is not running.', 409, 'NOT_RUNNING')
+      }
+      if (match.players.some((entry) => entry.userId !== userId && !isOnlineLite(entry.lastSeenAt, now))) {
+        throw new DualError('The round is starting — try again in a moment.', 409, 'NOT_RUNNING')
+      }
+      crashAt = new Date(
+        match.startsAt.getTime() + elapsedMsForMultiplierX100(match.crashMultiplierX100),
+      )
+      const launched = await tx.dualMatch.updateMany({
+        where: { id: matchId, status: 'COUNTDOWN' },
+        data: { status: 'RUNNING', crashAt },
+      })
+      if (launched.count !== 1) {
+        throw new DualError('The round is not running.', 409, 'NOT_RUNNING')
+      }
+    } else if (match.status !== 'RUNNING') {
       throw new DualError('The round is not running.', 409, 'NOT_RUNNING')
     }
 
-    const now = new Date()
-    if (now.getTime() >= match.crashAt.getTime()) {
+    if (!match.startsAt || !crashAt) {
+      throw new DualError('The round is not running.', 409, 'NOT_RUNNING')
+    }
+    if (now.getTime() >= crashAt.getTime()) {
       throw new DualError('Too late — the rocket crashed.', 409, 'TOO_LATE')
     }
     if (player.cashoutAt) {

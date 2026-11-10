@@ -27,10 +27,9 @@ function statusSummary(status: DualStatus): string {
   return 'Preparing'
 }
 
-function secondsUntil(iso: string | null, serverNow: string | null): number {
+function secondsUntil(iso: string | null, clockOffsetMs: number): number {
   if (!iso) return 0
-  const offset = serverNow ? new Date(serverNow).getTime() - Date.now() : 0
-  return Math.max(0, Math.ceil((new Date(iso).getTime() - (Date.now() + offset)) / 1_000))
+  return Math.max(0, Math.ceil((new Date(iso).getTime() - (Date.now() + clockOffsetMs)) / 1_000))
 }
 
 export function DualGame() {
@@ -40,6 +39,17 @@ export function DualGame() {
   const [busy, setBusy] = useState<string | null>(null)
   const [notice, setNotice] = useState<Notice>(null)
   const [stake, setStake] = useState(() => formatPusdUnits(DUAL_DEFAULT_STAKE_PUSD))
+  // Estimated `serverNow - localNow`, corrected for the round-trip time of the
+  // poll. Without this the rocket lags by the whole request latency (which can
+  // be tens of seconds on a slow database link).
+  const [clockOffsetMs, setClockOffsetMs] = useState(0)
+  const [localCashout, setLocalCashout] = useState<{
+    key: string
+    multiplierX100: number
+  } | null>(null)
+  // Re-renders the action bar while a round is in flight, so the cash-out
+  // button unlocks on the local clock instead of waiting for the next poll.
+  const [nowTick, setNowTick] = useState(() => Date.now())
 
   const authRef = useRef(false)
   const readyKeyRef = useRef<string | null>(null)
@@ -74,6 +84,13 @@ export function DualGame() {
         return null
       }
       const stateData = data as DualStateResponse
+      const serverNowMs = new Date(stateData.serverNow).getTime()
+      if (Number.isFinite(serverNowMs)) {
+        // `serverNow` is stamped right before the response is serialised, so
+        // measure against the moment it arrived. Averaging with the send time
+        // would make the rocket lead the server by half the request latency.
+        setClockOffsetMs(serverNowMs - Date.now())
+      }
       authRef.current = false
       setAuthRequired(false)
       setState(stateData)
@@ -144,9 +161,9 @@ export function DualGame() {
     }
 
     const control = { cancelled: false }
-    const schedule: { timer?: number } = {}
 
     const beat = async () => {
+      if (control.cancelled) return
       try {
         await fetch('/api/dual/heartbeat', {
           method: 'POST',
@@ -159,13 +176,16 @@ export function DualGame() {
       } catch {
         // The next tick retries; a failed ping must never break the UI.
       }
-      if (!control.cancelled) schedule.timer = window.setTimeout(beat, DUAL_HEARTBEAT_MS)
     }
 
-    schedule.timer = window.setTimeout(beat, DUAL_HEARTBEAT_MS)
+    // Fire on a fixed interval instead of chaining after each response: on a
+    // slow link one heartbeat can take 15s, which would otherwise push the next
+    // ping outside the disconnect grace window.
+    beat()
+    const timer = window.setInterval(beat, DUAL_HEARTBEAT_MS)
     return () => {
       control.cancelled = true
-      if (schedule.timer) window.clearTimeout(schedule.timer)
+      window.clearInterval(timer)
     }
     // Restart only when the match itself changes. Using the whole `state.match`
     // object would restart the timer on every poll, so the ping would never run.
@@ -238,6 +258,37 @@ export function DualGame() {
   const outcome: 'win' | 'lose' | 'neutral' =
     match?.status === 'SETTLED' ? (match.winnerUserId === selfId ? 'win' : 'lose') : 'neutral'
 
+  const roundKey = match ? `${match.id}:${match.round}` : null
+  const startsAtMs = match?.startsAt ? new Date(match.startsAt).getTime() : null
+  const localNowMs = nowTick + clockOffsetMs
+  // The clock decides when the rocket leaves, not the last poll: the server only
+  // flips COUNTDOWN -> RUNNING when a request reaches it, and that can be many
+  // seconds after the scheduled launch on a slow link.
+  const locallyFlying =
+    match != null &&
+    startsAtMs != null &&
+    localNowMs >= startsAtMs &&
+    (match.status === 'RUNNING' || match.status === 'COUNTDOWN')
+  const localCashoutX100 =
+    localCashout && roundKey === localCashout.key ? localCashout.multiplierX100 : null
+  const cashoutLocked = match?.viewer.hasCashedOut === true || localCashoutX100 != null
+  const shownCashoutX100 = localCashoutX100 ?? match?.viewer.cashoutMultiplierX100 ?? null
+  const canPressCashOut = locallyFlying && !cashoutLocked && busy !== 'cashout'
+  const activeMatchStatus = match?.status ?? null
+
+  useEffect(() => {
+    if (
+      activeMatchStatus !== 'COUNTDOWN' &&
+      activeMatchStatus !== 'RUNNING' &&
+      activeMatchStatus !== 'INTERMISSION'
+    ) {
+      return
+    }
+    setNowTick(Date.now())
+    const timer = window.setInterval(() => setNowTick(Date.now()), 250)
+    return () => window.clearInterval(timer)
+  }, [activeMatchStatus, match?.id, match?.round])
+
   // Sound cues. Refs guard against duplicate plays on every poll.
   useEffect(() => {
     if (!match) {
@@ -281,10 +332,12 @@ export function DualGame() {
 
   const cashout = useCallback(async () => {
     if (!match) return
+    const key = `${match.id}:${match.round}`
     const result = await mutate('/api/dual/cashout', 'POST', { matchId: match.id }, 'cashout')
     if (result) {
-      play('cashout')
       const multiplier = Number(result.multiplierX100 ?? 0)
+      setLocalCashout({ key, multiplierX100: multiplier })
+      play('cashout')
       setNotice({
         tone: 'success',
         text: `Cashed out at ${formatMultiplier(multiplier)}. The last cashout takes the pot.`,
@@ -293,7 +346,7 @@ export function DualGame() {
   }, [match, mutate, play])
 
   useEffect(() => {
-    if (!match?.viewer.canCashOut) return
+    if (!canPressCashOut) return
     const handler = (event: KeyboardEvent) => {
       if (event.code !== 'Space' || event.repeat) return
       const target = event.target as HTMLElement | null
@@ -303,7 +356,7 @@ export function DualGame() {
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [cashout, match?.viewer.canCashOut])
+  }, [canPressCashOut, cashout])
 
   const cancelMatch = useCallback(async () => {
     if (!match) return
@@ -410,7 +463,7 @@ export function DualGame() {
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            {match?.status === 'RUNNING' ? (
+            {locallyFlying ? (
               <span className="flex items-center gap-1.5 rounded-full border border-[#00fa7f]/30 bg-[#00fa7f]/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.16em] text-[#00fa7f]">
                 <span className="dual-live-dot h-1.5 w-1.5 rounded-full bg-[#00fa7f]" />
                 Live
@@ -546,7 +599,7 @@ export function DualGame() {
                   crashMultiplierX100={match.crashMultiplierX100}
                   currentMultiplierX100={match.currentMultiplierX100}
                   countdownMsRemaining={match.countdownMsRemaining}
-                  serverNow={match.serverNow}
+                  clockOffsetMs={clockOffsetMs}
                   round={match.round}
                   outcome={outcome}
                 />
@@ -592,7 +645,7 @@ export function DualGame() {
                       Both players busted — replaying with the same stakes
                     </p>
                     <p className="mt-0.5 text-[10px] text-white/55">
-                      Next round in {secondsUntil(match.intermissionEndsAt, match.serverNow)}s. No
+                      Next round in {secondsUntil(match.intermissionEndsAt, clockOffsetMs)}s. No
                       fee is charged until a winner exists.
                     </p>
                   </div>
@@ -610,35 +663,39 @@ export function DualGame() {
               ) : null}
 
               <div className="mt-2.5">
-                {match.status === 'RUNNING' ? (
+                {locallyFlying ? (
                   <button
                     type="button"
                     onClick={cashout}
-                    disabled={!match.viewer.canCashOut || busy === 'cashout'}
+                    disabled={!canPressCashOut}
                     className={`dual-cashout flex h-14 w-full items-center justify-between rounded-xl px-5 transition ${
-                      match.viewer.canCashOut
+                      canPressCashOut
                         ? 'bg-[var(--t-green)] text-[var(--t-green-ink)] shadow-[0_0_34px_rgba(0,250,127,0.24)] hover:brightness-110 active:scale-[0.995]'
                         : 'border border-white/[0.08] bg-white/[0.03] text-white/45'
                     }`}
                   >
                     <span className="text-left">
                       <span className="block text-[15px] font-black uppercase tracking-[0.1em]">
-                        {match.viewer.hasCashedOut
-                          ? 'Cashed out'
-                          : match.viewer.canCashOut
-                            ? 'Cash out'
-                            : 'Waiting for the round'}
+                        {busy === 'cashout'
+                          ? 'Cashing out…'
+                          : cashoutLocked
+                            ? 'Cashed out'
+                            : 'Cash out'}
                       </span>
                       <span className="mt-0.5 block text-[10px] font-medium opacity-70">
-                        {match.viewer.hasCashedOut && match.viewer.cashoutMultiplierX100 != null
-                          ? `Locked at ${formatMultiplier(match.viewer.cashoutMultiplierX100)} — last cashout wins`
-                          : `Last cashout takes ${usd(match.potPusd)}`}
+                        {cashoutLocked && shownCashoutX100 != null
+                          ? `Locked at ${formatMultiplier(shownCashoutX100)} — last cashout wins`
+                          : canPressCashOut
+                            ? `Last cashout takes ${usd(match.potPusd)}`
+                            : 'Waiting for the round'}
                       </span>
                     </span>
                     <span className="flex items-center gap-2 text-right">
-                      <span className="hidden text-[10px] font-semibold uppercase tracking-[0.12em] opacity-60 sm:block">
-                        Space
-                      </span>
+                      {canPressCashOut ? (
+                        <span className="hidden text-[10px] font-semibold uppercase tracking-[0.12em] opacity-60 sm:block">
+                          Space
+                        </span>
+                      ) : null}
                       <svg
                         viewBox="0 0 24 24"
                         className="h-5 w-5"
@@ -663,7 +720,11 @@ export function DualGame() {
                       </p>
                     </div>
                     <span className="rounded-lg border border-[#00fa7f]/20 bg-[#00fa7f]/10 px-2 py-1 text-[10px] font-bold text-[#00fa7f]">
-                      {Math.max(1, Math.ceil((match.countdownMsRemaining ?? 0) / 1_000))}s
+                      {Math.max(
+                        1,
+                        Math.ceil(((startsAtMs ?? localNowMs) - localNowMs) / 1_000),
+                      )}
+                      s
                     </span>
                   </div>
                 ) : match.status === 'SETTLED' ? (

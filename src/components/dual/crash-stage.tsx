@@ -16,7 +16,12 @@ type CrashStageProps = {
   crashMultiplierX100: number | null
   currentMultiplierX100: number
   countdownMsRemaining: number | null
-  serverNow: string
+  /**
+   * `serverNow - localNow` in milliseconds, measured with the round-trip time
+   * of the poll taken into account. Using the raw `serverNow` string makes the
+   * rocket lag by the whole request latency on a slow connection.
+   */
+  clockOffsetMs: number
   round: number
   outcome: 'win' | 'lose' | 'neutral'
 }
@@ -43,7 +48,7 @@ export function CrashStage({
   crashMultiplierX100,
   currentMultiplierX100,
   countdownMsRemaining,
-  serverNow,
+  clockOffsetMs,
   round,
   outcome,
 }: CrashStageProps) {
@@ -55,7 +60,7 @@ export function CrashStage({
     crashMultiplierX100,
     currentMultiplierX100,
     countdownMsRemaining,
-    serverNow,
+    clockOffsetMs,
     round,
     outcome,
   })
@@ -67,7 +72,7 @@ export function CrashStage({
       crashMultiplierX100,
       currentMultiplierX100,
       countdownMsRemaining,
-      serverNow,
+      clockOffsetMs,
       round,
       outcome,
     }
@@ -77,10 +82,19 @@ export function CrashStage({
     crashMultiplierX100,
     currentMultiplierX100,
     countdownMsRemaining,
-    serverNow,
+    clockOffsetMs,
     round,
     outcome,
   ])
+
+  // The replay that plays the missing flight when the first response for a
+  // round already contains the crash result (a slow poll can skip RUNNING).
+  const catchUpRef = useRef<{
+    key: string
+    from: number
+    startedAt: number
+    target: number
+  } | null>(null)
 
   useEffect(() => {
     const raf = { id: 0 }
@@ -88,25 +102,68 @@ export function CrashStage({
 
     const tick = (time: number) => {
       const props = propsRef.current
-      const offset = new Date(props.serverNow).getTime() - Date.now()
-      const running = props.status === 'RUNNING' && props.startsAt != null
+      const now = Date.now() + props.clockOffsetMs
+      const startsAtMs = props.startsAt ? new Date(props.startsAt).getTime() : null
+      // The clock is the source of truth for the flight, not the poll status:
+      // the server only flips COUNTDOWN -> RUNNING when a request arrives, and
+      // on a slow link that can be seconds after the rocket actually left.
+      const flying =
+        startsAtMs != null &&
+        now >= startsAtMs &&
+        (props.status === 'RUNNING' || props.status === 'COUNTDOWN')
+      const crashed = props.status === 'SETTLED' || props.status === 'INTERMISSION'
 
-      let target = props.currentMultiplierX100
-      if (running) {
-        target = multiplierX100AtElapsed(Date.now() + offset - new Date(props.startsAt!).getTime())
-        target = Math.min(target, DUAL_MAX_MULTIPLIER_X100)
-      } else if (props.status === 'SETTLED' || props.status === 'INTERMISSION') {
-        target = props.crashMultiplierX100 ?? props.currentMultiplierX100
-      } else if (props.status === 'WAITING' || props.status === 'COUNTDOWN') {
-        target = 100
+      let next = displayRef.current
+
+      if (flying) {
+        catchUpRef.current = null
+        next = Math.min(
+          multiplierX100AtElapsed(now - startsAtMs!),
+          DUAL_MAX_MULTIPLIER_X100,
+        )
+      } else if (crashed) {
+        const target = props.crashMultiplierX100 ?? props.currentMultiplierX100
+        const key = `${props.round}:${props.status}`
+        const active = catchUpRef.current
+
+        if (active?.key !== key) {
+          // Only replay when the client never got to see the flight; otherwise
+          // the last frame is already at (or past) the crash point.
+          if (displayRef.current < target * 0.9 && target > 130) {
+            catchUpRef.current = {
+              key,
+              from: displayRef.current,
+              startedAt: time,
+              target,
+            }
+          } else {
+            catchUpRef.current = null
+          }
+        }
+
+        const run = catchUpRef.current
+        if (run && run.key === key) {
+          const progress = Math.min(1, (time - run.startedAt) / 900)
+          const eased = 1 - Math.pow(1 - progress, 3)
+          next = run.from + (run.target - run.from) * eased
+          if (progress >= 1) {
+            next = run.target
+            catchUpRef.current = null
+          }
+        } else {
+          next =
+            Math.abs(target - displayRef.current) < 0.5
+              ? target
+              : displayRef.current + (target - displayRef.current) * 0.2
+        }
+      } else {
+        catchUpRef.current = null
+        next =
+          Math.abs(100 - displayRef.current) < 0.5
+            ? 100
+            : displayRef.current + (100 - displayRef.current) * 0.14
       }
 
-      const current = displayRef.current
-      const next = running
-        ? target
-        : Math.abs(target - current) < 0.5
-          ? target
-          : current + (target - current) * 0.14
       displayRef.current = next
 
       if (time - paint.last > 28) {
@@ -132,7 +189,20 @@ export function CrashStage({
     }))
   }, [round])
 
+  const startsAtMs = startsAt ? new Date(startsAt).getTime() : null
+  // Re-read the clock on every paint: the animation loop re-renders this
+  // component every ~28ms, so the value is always fresh while the rocket flies.
+  // eslint-disable-next-line react/purity
+  const nowMs = Date.now() + clockOffsetMs
+  const locallyFlying =
+    startsAtMs != null &&
+    nowMs >= startsAtMs &&
+    (status === 'RUNNING' || status === 'COUNTDOWN')
   const ended = status === 'SETTLED' || status === 'INTERMISSION'
+  const crashTargetX100 = ended ? (crashMultiplierX100 ?? currentMultiplierX100) : null
+  const arrivedAtCrash = crashTargetX100 != null && displayX100 >= crashTargetX100 - 1
+  const launchMsRemaining =
+    startsAtMs != null ? Math.max(0, startsAtMs - nowMs) : (countdownMsRemaining ?? 0)
   const maxMultiplier = Math.max(displayX100 / 100, 2)
   const elapsed = elapsedMsForMultiplierX100(Math.max(displayX100, 100))
   const effectiveElapsed = Math.max(elapsed, 1)
@@ -183,7 +253,7 @@ export function CrashStage({
     ? 'CRASHED AT'
     : status === 'CANCELLED'
       ? 'CANCELLED'
-      : status === 'RUNNING'
+      : locallyFlying
         ? 'LIVE MULTIPLIER'
         : status === 'COUNTDOWN'
           ? 'LAUNCHING'
@@ -205,7 +275,7 @@ export function CrashStage({
         >
           {formatMultiplier(displayX100)}
         </span>
-        {status === 'RUNNING' ? (
+        {locallyFlying && !ended ? (
           <span className="mt-2 rounded-full border border-[#00fa7f]/30 bg-[#00fa7f]/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#00fa7f]">
             Rocket in flight
           </span>
@@ -298,7 +368,7 @@ export function CrashStage({
             className="dual-trail"
           />
 
-          {ended ? (
+          {ended && arrivedAtCrash ? (
             <g
               key={`${round}-${status}`}
               transform={`translate(${lastX.toFixed(1)} ${lastY.toFixed(1)})`}
@@ -317,20 +387,20 @@ export function CrashStage({
           leftPct={(lastX / WIDTH) * 100}
           topPct={(lastY / HEIGHT) * 100}
           angleDeg={angleDeg}
-          crashed={ended}
+          crashed={ended && arrivedAtCrash}
         />
       </div>
 
-      {status === 'COUNTDOWN' ? (
+      {status === 'COUNTDOWN' && !locallyFlying ? (
         <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-[#050914]/55 backdrop-blur-[2px]">
           <span className="text-[11px] font-semibold uppercase tracking-[0.3em] text-white/45">
             Launching in
           </span>
           <span
-            key={Math.ceil((countdownMsRemaining ?? 0) / 1_000)}
+            key={Math.ceil(launchMsRemaining / 1_000)}
             className="dual-countdown mt-2 text-[86px] font-black leading-none text-white"
           >
-            {Math.max(1, Math.ceil((countdownMsRemaining ?? 0) / 1_000))}
+            {Math.max(1, Math.ceil(launchMsRemaining / 1_000))}
           </span>
           <span className="mt-2 text-xs font-medium text-[#00fa7f]/80">
             Stakes are locked · get ready
@@ -338,7 +408,7 @@ export function CrashStage({
         </div>
       ) : null}
 
-      {ended ? (
+      {ended && arrivedAtCrash ? (
         <div
           className="dual-crash-flash pointer-events-none absolute inset-0 z-20"
           aria-hidden="true"

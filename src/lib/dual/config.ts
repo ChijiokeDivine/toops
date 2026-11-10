@@ -27,8 +27,16 @@ export const DUAL_MAX_MULTIPLIER_X100 = 10_000_000
 /** Prevent instant no-play rounds; the fair formula can still produce 1.00x. */
 export const DUAL_MIN_MULTIPLIER_X100 = 101
 
-/** Exponential rocket curve: m(t) = e^(k * seconds). */
-export const DUAL_GROWTH_RATE_PER_SECOND = 0.22
+/**
+ * Exponential rocket curve: m(t) = e^(k * seconds).
+ *
+ * Pacing is deliberate: the rocket has to be watchable, and the cash-out button
+ * has to stay pressable long enough to matter. At 0.07/s a 2.00x round flies
+ * for ~10s; the old 0.22/s reached 2.00x in ~3s and most fair rounds were over
+ * before the first client poll came back, so the rocket looked like it jumped
+ * straight to the crash point.
+ */
+export const DUAL_GROWTH_RATE_PER_SECOND = 0.07
 
 /** Both players must load before stakes are put at risk. */
 export const DUAL_READY_TIMEOUT_MS = 60_000
