@@ -1,5 +1,8 @@
-onlyBuiltDependencies:
-  - '@prisma/client'
-  - '@prisma/engines'
-  - '@reown/appkit'
-  - prisma
+allowBuilds:
+  '@prisma/client': false
+  '@prisma/engines': false
+  better-sqlite3: false
+  canvas: false
+  is-hidden-file: false
+  prisma: false
+  sqlite3: false
