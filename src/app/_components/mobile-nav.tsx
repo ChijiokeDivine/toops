@@ -9,11 +9,10 @@ type Item = {
 }
 
 const ITEMS: Item[] = [
-  { label: 'Menu', Icon: MenuIcon },
+  // { label: 'Menu', Icon: MenuIcon },
   { label: 'Search', Icon: SearchIcon },
   { label: 'Multiplayer', Icon: CasinoIcon, href: '/multiplayer' },
   { label: 'Dual', Icon: SportsIcon, href: '/originals/crash' },
-  { label: 'Rewards', Icon: GiftIcon, href: '/rewards' },
   { label: 'Chat', Icon: ChatIcon },
 ]
 
