@@ -21,7 +21,7 @@ export function Logo() {
         alt="toops"
         width={70}
         height={60}
-        className="h-10 w-auto lg:h-12"
+        className="h-12 w-auto lg:h-12"
       />
     </Link>
   )

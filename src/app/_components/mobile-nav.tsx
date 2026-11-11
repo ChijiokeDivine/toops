@@ -25,7 +25,7 @@ export function MobileNav() {
       aria-label="Main"
       className="fixed inset-x-0 bottom-0 z-50 border-t border-[var(--t-border)] bg-[rgba(8,13,23,0.96)] pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden"
     >
-      <ul className="grid h-[60px] grid-cols-6">
+      <ul className="grid h-[60px] grid-cols-4">
         {ITEMS.map(({ label, Icon, href }) => (
           <li key={label}>
             {href ? (
