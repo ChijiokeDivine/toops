@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import { AuthTrigger } from '@/components/auth/auth-trigger'
 import { DUAL_MAX_STAKE_PUSD, DUAL_MIN_STAKE_PUSD } from '@/lib/dual/config'
 import { formatPusdUnits, parsePusdInput } from '@/lib/pusd'
@@ -47,9 +46,6 @@ export function StakePanel({
   signedIn = true,
   players = 1,
 }: StakePanelProps) {
-  const [tab, setTab] = useState<'manual' | 'auto'>('manual')
-
-
   const stakePusd = parsePusdInput(stake) ?? 0n
   const balance = parsePusdInput(balancePusd) ?? 0n
   // Winner takes the doubled pot minus the 1% platform fee; profit is the payout
@@ -81,28 +77,8 @@ export function StakePanel({
       <div className="grid lg:grid-cols-[330px_minmax(0,1fr)]">
         {/* ── Controls ─────────────────────────────────────────── */}
         <div className="flex flex-col border-b border-[#1b2127] bg-[#0f151b] p-4 lg:min-h-[640px] lg:border-b-0 lg:border-r">
-          <div className="flex gap-1 rounded-xl bg-[#080c12] p-1">
-            {(['manual', 'auto'] as const).map((value) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setTab(value)}
-                aria-pressed={tab === value}
-                className={`h-9 flex-1 rounded-lg text-[15px] font-semibold transition ${
-                  tab === value
-                    ? 'border border-[#123c2b] bg-[#081919] text-[#00ff86]'
-                    : 'border border-transparent text-[#9aa3b0] hover:text-white'
-                }`}
-              >
-                {value === 'manual' ? 'Manual' : 'Auto'}
-              </button>
-            ))}
-          </div>
-
-          <div className="-mx-4 mt-5 h-px bg-[#1b2127]" />
-
-          <div className="mt-5">
-            <p className="text-[13px] font-medium text-[#8b97a5]">Your Bet</p>
+          <div>
+            <p className="text-[13px] font-medium text-[#8b97a5]">Stake</p>
             <div className="mt-2 flex h-11 items-stretch overflow-hidden rounded-xl bg-[#19212a]">
               <div className="flex min-w-0 flex-1 items-center gap-2 pl-2.5">
                 <CoinBadge />
@@ -149,7 +125,7 @@ export function StakePanel({
         
 
           <div className="mt-4">
-            <p className="text-[13px] font-medium text-[#8b97a5]">Profit On Win</p>
+            <p className="text-[13px] font-medium text-[#8b97a5]">Profit</p>
             <div className="mt-2 flex h-11 items-center gap-2 rounded-xl border-2 border-[#252f3a] px-2.5">
               <CoinBadge />
               <span className="min-w-0 flex-1 truncate text-[16px] font-semibold tabular-nums text-white/65">
@@ -166,14 +142,14 @@ export function StakePanel({
               disabled={busy || validation != null}
               className="mt-4 flex h-11 w-full items-center justify-center rounded-xl bg-[#00ff86] text-[16px] font-bold text-[#03170d] shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_8px_24px_rgba(0,255,134,0.16)] transition hover:brightness-105 active:scale-[0.995] disabled:cursor-not-allowed disabled:opacity-45"
             >
-              {busy ? 'Starting…' : 'Start Game'}
+              {busy ? 'Starting…' : 'Play'}
             </button>
           ) : (
             <AuthTrigger
               view="telegram"
               className="mt-4 flex h-11 w-full items-center justify-center rounded-xl bg-[#00ff86] text-[16px] font-bold text-[#03170d] shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_8px_24px_rgba(0,255,134,0.16)] transition hover:brightness-105 active:scale-[0.995]"
             >
-              Login to Play
+              Sign in
             </AuthTrigger>
           )}
 
@@ -226,12 +202,6 @@ export function StakePanel({
 
         {/* ── Demo board (non-interactive) ──────────────────────── */}
         <CrashDemo />
-      </div>
-
-      <div className="flex items-center gap-2 border-t border-[#1b2127] bg-[#0f151b] px-4 py-4">
-    
-
-        <span className="text-[13px] font-medium text-[#9aa1ac]"></span>
       </div>
     </section>
   )

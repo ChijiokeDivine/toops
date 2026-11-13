@@ -14,6 +14,7 @@ import {
   WalletIcon,
   XpIcon,
 } from '@/app/_components/icons'
+import { openSettings } from '@/components/settings/settings-events'
 import { WalletDialog } from './wallet-dialog'
 
 type AccountNavProps = {
@@ -39,7 +40,6 @@ const XP_PER_LEVEL = 500
 const SOON_ITEMS = [
   { label: 'Transactions', Icon: TransactionsIcon },
   { label: 'My bets', Icon: TicketIcon },
-  { label: 'Settings', Icon: SettingsIcon },
 ]
 
 function initials(name: string): string {
@@ -249,6 +249,19 @@ export function AccountNav({
               >
                 <WalletIcon className="h-[18px] w-[18px] text-[var(--t-muted)]" />
                 Wallet
+              </button>
+
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setMenu(null)
+                  openSettings()
+                }}
+                className="flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm text-white transition hover:bg-[var(--t-surface-2)]"
+              >
+                <SettingsIcon className="h-[18px] w-[18px] text-[var(--t-muted)]" />
+                Settings
               </button>
 
               {SOON_ITEMS.map(({ label, Icon }) => (

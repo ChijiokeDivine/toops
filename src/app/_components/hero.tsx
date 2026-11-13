@@ -36,7 +36,7 @@ export function Hero() {
 
       <div className="mt-5 flex w-full flex-col items-center lg:mt-auto lg:items-start">
         <h1 className="text-[30px] font-bold leading-[1.1] tracking-tight text-white lg:text-[34px]">
-          This Is Your Kingdom
+          Play PVP Games
         </h1>
 
         <div className="mt-[27px] flex w-full flex-col items-center gap-3 lg:mt-7 lg:flex-row lg:gap-3">

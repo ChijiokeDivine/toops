@@ -40,10 +40,7 @@ export function HistoryPanel({ refreshKey }: { refreshKey: string }) {
   return (
     <section className="dual-card p-4 sm:p-5 bg-[#050910]">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold text-white">Your last rounds</h2>
-        <span className="text-[10px] uppercase tracking-[0.16em] text-[var(--t-muted)]">
-          {matches.length} recent
-        </span>
+        <h2 className="text-lg font-bold text-white">Recent rounds</h2>
       </div>
 
       <div className="mt-3 overflow-hidden rounded-xl border border-white/[0.06]">

@@ -29,21 +29,14 @@ export function QueuePanel({ stakePusd, expiresAt, onCancel, busy }: QueuePanelP
       </div>
 
       <div className="relative flex flex-col items-center text-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#00fa7f]/25 bg-[#00fa7f]/10">
-          
-        </div>
-        <h2 className="mt-3 text-lg font-bold text-white">Searching for an opponent</h2>
-        <p className="mt-1 max-w-sm text-[12px] text-[var(--t-muted)]">
-          Looking for a random player staking exactly {usd(stakePusd)}. The round starts as soon as
-          you are paired and both players are ready.
-        </p>
+        <h2 className="mt-3 text-lg font-bold text-white">Finding an opponent</h2>
 
         <div className="mt-4 flex items-center gap-2 rounded-xl border border-white/[0.07] bg-[#070b13]/70 px-3 py-2">
           <span className="h-2 w-2 animate-pulse rounded-full bg-[#00fa7f]" />
           <span className="text-[12px] font-semibold text-white">{usd(stakePusd)} locked</span>
           <span className="text-white/20">·</span>
           <span className="text-[11px] tabular-nums text-[var(--t-muted)]">
-            auto-refund in {formatClock(remaining)}
+            {formatClock(remaining)}
           </span>
         </div>
 

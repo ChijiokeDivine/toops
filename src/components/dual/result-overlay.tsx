@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import type { DualMatchView, DualVerifyResponse } from '@/lib/dual/types'
 import { formatMultiplier } from '@/lib/dual/curve'
-import { shortHash, usd } from './format'
+import { usd } from './format'
 
 type ResultOverlayProps = {
   match: DualMatchView
@@ -42,7 +42,7 @@ export function ResultOverlay({
       }
       setVerification(data as DualVerifyResponse)
     } catch {
-      setVerifyError('Verification failed. Try again.')
+      setVerifyError('Verification failed.')
     } finally {
       setVerifyLoading(false)
     }
@@ -73,9 +73,7 @@ export function ResultOverlay({
               </svg>
             </div>
             <h3 className="mt-3 text-xl font-black text-white">Match cancelled</h3>
-            <p className="mt-1 text-[12px] text-[var(--t-muted)]">
-              Both stakes were refunded in full. No platform fee was charged.
-            </p>
+            <p className="mt-1 text-[12px] text-[var(--t-muted)]">Stakes refunded.</p>
             {match.disputeReason ? (
               <p className="mx-auto mt-3 max-w-xs rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-[11px] text-white/55">
                 {match.disputeReason}
@@ -95,13 +93,13 @@ export function ResultOverlay({
             <div
               className={`relative overflow-hidden px-5 pb-4 pt-5 text-center ${
                 won
-                  ? 'bg-[radial-gradient(90%_120%_at_50%_0%,rgba(255,223,26,0.2),transparent_70%)]'
-                  : 'bg-[radial-gradient(90%_120%_at_50%_0%,rgba(255,91,110,0.14),transparent_70%)]'
+                  ? ''
+                  : ''
               }`}
             >
               <span
                 className={`absolute inset-x-0 top-0 h-[2px] ${
-                  won ? 'bg-[#ffdf1a]' : 'bg-[#ff5b6e]'
+                  won ? '' : ''
                 }`}
               />
               <p className="text-[10px] font-semibold uppercase tracking-[0.26em] text-white/45">
@@ -113,7 +111,7 @@ export function ResultOverlay({
               <h3
                 className={`mt-1 text-[26px] font-black ${won ? 'text-[#ffdf1a]' : 'text-white'}`}
               >
-                {won ? 'You won the pot' : 'Opponent took the pot'}
+                {won ? 'You won' : 'You lost'}
               </h3>
               <p
                 className={`mt-1 text-3xl font-black tabular-nums ${won ? 'text-white' : 'text-white/55'}`}
@@ -122,7 +120,7 @@ export function ResultOverlay({
               </p>
               <p className="mt-1 text-[11px] text-[var(--t-muted)]">
                 {match.crashMultiplierX100 != null
-                  ? `Rocket ended at ${formatMultiplier(match.crashMultiplierX100)}`
+                  ? `Crashed at ${formatMultiplier(match.crashMultiplierX100)}`
                   : 'Round complete'}
               </p>
             </div>
@@ -136,7 +134,7 @@ export function ResultOverlay({
               </div>
               <div className="bg-[#0c1320] px-2 py-2.5">
                 <p className="text-[9px] uppercase tracking-[0.14em] text-[var(--t-muted)]">
-                  1% fee
+                  Fee
                 </p>
                 <p className="mt-0.5 text-[12px] font-bold tabular-nums text-white">
                   {usd(match.feePusd)}
@@ -175,18 +173,18 @@ export function ResultOverlay({
             <div className="border-t border-white/[0.06] px-4 pb-4 pt-3">
               {declined && !selfRequested ? (
                 <p className="mb-2 text-center text-[10px] font-medium text-[#ffb4a6]">
-                  Rematch declined. You can ask again or find a new opponent.
+                  Rematch declined.
                 </p>
               ) : null}
               {selfRequested ? (
                 <div className="mb-2 flex items-center justify-center gap-2 rounded-lg border border-[#ffdf1a]/20 bg-[#ffdf1a]/[0.06] px-2 py-2 text-[11px] text-[#ffdf1a]">
                   <span className="dual-live-dot h-1.5 w-1.5 rounded-full bg-[#ffdf1a]" />
-                  Rematch requested — waiting for opponent
+                  Waiting for opponent
                 </div>
               ) : opponentRequested ? (
                 <div className="mb-2 flex items-center justify-center gap-2 rounded-lg border border-[#00fa7f]/20 bg-[#00fa7f]/[0.06] px-2 py-2 text-[11px] text-[#00fa7f]">
                   <span className="dual-live-dot h-1.5 w-1.5 rounded-full bg-[#00fa7f]" />
-                  Opponent wants a rematch
+                  Rematch offer
                 </div>
               ) : null}
 
@@ -232,7 +230,7 @@ export function ResultOverlay({
                   disabled={verifyLoading}
                   className="text-[10px] font-semibold text-[#7fd8ff] underline-offset-2 transition hover:underline disabled:opacity-50"
                 >
-                  {verifyLoading ? 'Verifying…' : 'Verify this round'}
+                  {verifyLoading ? 'Verifying…' : 'Verify'}
                 </button>
                 <div className="flex items-center gap-3">
                   <button
@@ -243,9 +241,7 @@ export function ResultOverlay({
                   >
                     Report issue
                   </button>
-                  <span className="text-[9px] text-[var(--t-muted)]">
-                    hash {shortHash(match.serverSeedHash, 8, 5)}
-                  </span>
+                
                 </div>
               </div>
 

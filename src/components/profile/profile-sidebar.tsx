@@ -14,6 +14,7 @@ import {
   UserIcon,
   UsersIcon,
 } from '@/app/_components/icons'
+import { openSettings } from '@/components/settings/settings-events'
 
 type ProfileSidebarProps = {
   name: string
@@ -26,7 +27,7 @@ const NAV_ITEMS = [
   { label: 'Profile', Icon: UserIcon, href: '/profile' },
   { label: 'Inbox', Icon: ChatIcon },
   { label: 'Affiliates', Icon: UsersIcon },
-  { label: 'Settings', Icon: SettingsIcon },
+  { label: 'Settings', Icon: SettingsIcon, action: 'settings' },
   { label: 'Privacy', Icon: LockIcon },
   { label: 'Connections', Icon: LinkIcon },
   { label: 'Transactions', Icon: TransactionsIcon },
@@ -109,6 +110,7 @@ export function ProfileSidebar({ name, imageUrl, xp, level }: ProfileSidebarProp
         <ul className="space-y-0.5">
           {NAV_ITEMS.map(({ label, Icon, ...item }) => {
             const isActive = 'href' in item
+            const isSettings = 'action' in item
             return (
               <li key={label}>
                 {isActive ? (
@@ -120,6 +122,15 @@ export function ProfileSidebar({ name, imageUrl, xp, level }: ProfileSidebarProp
                     <Icon className="h-[18px] w-[18px]" />
                     {label}
                   </Link>
+                ) : isSettings ? (
+                  <button
+                    type="button"
+                    onClick={openSettings}
+                    className="flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-white transition hover:bg-[var(--t-surface-2)]"
+                  >
+                    <Icon className="h-[18px] w-[18px] text-[var(--t-muted)]" />
+                    {label}
+                  </button>
                 ) : (
                   <button
                     type="button"

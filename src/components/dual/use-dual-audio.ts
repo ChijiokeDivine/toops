@@ -1,6 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
+import { useSoundMuted } from '@/components/settings/use-sound-muted'
 
 export type DualSound = 'tick' | 'launch' | 'cashout' | 'crash' | 'win' | 'lose' | 'queue' | 'click'
 
@@ -21,12 +22,7 @@ function audioContextCtor(): AudioContextCtor | null {
  */
 export function useDualAudio() {
   const contextRef = useRef<AudioContext | null>(null)
-  const [muted, setMuted] = useState(false)
-  const mutedRef = useRef(muted)
-
-  useEffect(() => {
-    mutedRef.current = muted
-  }, [muted])
+  const { muted, mutedRef, toggle } = useSoundMuted()
 
   const ensureContext = useCallback((): AudioContext | null => {
     const Ctor = audioContextCtor()
@@ -171,17 +167,14 @@ export function useDualAudio() {
   )
 
   const toggleMuted = useCallback(() => {
-    setMuted((current) => {
-      if (current) {
-        // Unmuting: give a tiny confirmation.
-        window.setTimeout(() => {
-          mutedRef.current = false
-          play('click')
-        }, 0)
-      }
-      return !current
-    })
-  }, [play])
+    const next = toggle()
+    if (!next) {
+      // Unmuting: give a tiny confirmation.
+      window.setTimeout(() => {
+        play('click')
+      }, 0)
+    }
+  }, [play, toggle])
 
   useEffect(() => {
     return () => {

@@ -17,16 +17,6 @@ import { usd } from './format'
 
 type Notice = { tone: 'info' | 'error' | 'success'; text: string } | null
 
-function statusSummary(status: DualStatus): string {
-  if (status === 'WAITING') return 'Waiting for both players'
-  if (status === 'COUNTDOWN') return 'Launching'
-  if (status === 'RUNNING') return 'Rocket in flight'
-  if (status === 'INTERMISSION') return 'Both busted'
-  if (status === 'SETTLED') return 'Round settled'
-  if (status === 'CANCELLED') return 'Cancelled & refunded'
-  return 'Preparing'
-}
-
 function secondsUntil(iso: string | null, clockOffsetMs: number): number {
   if (!iso) return 0
   return Math.max(0, Math.ceil((new Date(iso).getTime() - (Date.now() + clockOffsetMs)) / 1_000))
@@ -55,7 +45,7 @@ export function DualGame() {
   const readyKeyRef = useRef<string | null>(null)
   const previousRef = useRef<{ matchId?: string; status?: DualStatus; round?: number }>({})
   const tickRef = useRef<number | null>(null)
-  const { play, muted, toggleMuted } = useDualAudio()
+  const { play } = useDualAudio()
 
   const refresh = useCallback(async (): Promise<DualStateResponse | null> => {
     try {
@@ -235,7 +225,7 @@ export function DualGame() {
         }
         return data
       } catch {
-        setNotice({ tone: 'error', text: 'Network error. Please try again.' })
+        setNotice({ tone: 'error', text: 'Network error.' })
         return null
       } finally {
         setBusy(null)
@@ -254,9 +244,6 @@ export function DualGame() {
   const match = state?.match ?? null
   const selfId = state?.user.id ?? ''
   const selfPlayer = match?.players.find((player) => player.isSelf) ?? null
-  const opponent = match?.players.find((player) => !player.isSelf) ?? null
-  const outcome: 'win' | 'lose' | 'neutral' =
-    match?.status === 'SETTLED' ? (match.winnerUserId === selfId ? 'win' : 'lose') : 'neutral'
 
   const roundKey = match ? `${match.id}:${match.round}` : null
   const startsAtMs = match?.startsAt ? new Date(match.startsAt).getTime() : null
@@ -340,7 +327,7 @@ export function DualGame() {
       play('cashout')
       setNotice({
         tone: 'success',
-        text: `Cashed out at ${formatMultiplier(multiplier)}. The last cashout takes the pot.`,
+        text: `Cashed out at ${formatMultiplier(multiplier)}.`,
       })
     }
   }, [match, mutate, play])
@@ -366,7 +353,7 @@ export function DualGame() {
   const leave = useCallback(async () => {
     if (!match) return
     const result = await mutate('/api/dual/leave', 'POST', { matchId: match.id }, 'leave')
-    if (result) setNotice({ tone: 'info', text: 'Match closed. Choose a stake to play again.' })
+    if (result) setNotice({ tone: 'info', text: 'Match closed.' })
   }, [match, mutate])
 
   const rematch = useCallback(async () => {
@@ -378,8 +365,7 @@ export function DualGame() {
       'rematch',
     )
     if (result) {
-      if (result.matchId)
-        setNotice({ tone: 'success', text: 'Rematch locked — new round starting.' })
+      if (result.matchId) setNotice({ tone: 'success', text: 'Rematch requested.' })
       else play('click')
     }
   }, [match, mutate, play])
@@ -391,7 +377,7 @@ export function DualGame() {
 
   const regenerateSeed = useCallback(async () => {
     const result = await mutate('/api/dual/client-seed', 'POST', null, 'seed')
-    if (result) setNotice({ tone: 'success', text: 'New client seed generated.' })
+    if (result) setNotice({ tone: 'success', text: 'New seed.' })
   }, [mutate])
 
   const dispute = useCallback(async () => {
@@ -407,9 +393,7 @@ export function DualGame() {
     if (result) {
       setNotice({
         tone: 'info',
-        text: result.cancelled
-          ? 'Dispute raised before launch — the match was cancelled and refunded.'
-          : 'Dispute recorded. The round result is preserved for review.',
+        text: result.cancelled ? 'Match cancelled and refunded.' : 'Dispute submitted.',
       })
     }
   }, [match, mutate])
@@ -417,96 +401,8 @@ export function DualGame() {
   const historyKey = match ? `${match.id}:${match.status}:${match.round}` : 'idle'
   const showLobby = !match && !state?.queue
 
-  const rightPanel = match ? (
-    <div className="dual-card flex flex-col justify-between p-3">
-      <div>
-        <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[var(--t-muted)]">
-          Prize pool
-        </p>
-        <p className="mt-1 text-2xl font-black tabular-nums text-white">{usd(match.potPusd)}</p>
-        <div className="mt-3 space-y-2 text-[11px]">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[var(--t-muted)]">Winner gets</span>
-            <span className="font-bold tabular-nums text-[#00fa7f]">{usd(match.payoutPusd)}</span>
-          </div>
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[var(--t-muted)]">1% fee</span>
-            <span className="tabular-nums text-white/75">{usd(match.feePusd)}</span>
-          </div>
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[var(--t-muted)]">Round</span>
-            <span className="tabular-nums text-white/75">
-              #{match.round}
-              {match.replayCount > 0 ? ` · R${match.replayCount}` : ''}
-            </span>
-          </div>
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[var(--t-muted)]">Status</span>
-            <span className="text-right text-white/75">{statusSummary(match.status)}</span>
-          </div>
-        </div>
-      </div>
-      <div className="mt-3 rounded-lg border border-[#ffdf1a]/15 bg-[#ffdf1a]/[0.05] p-2">
-        <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[#ffdf1a]/80">
-          Winning rule
-        </p>
-        <p className="mt-0.5 text-[10px] leading-relaxed text-white/60">
-          The last cashout before the crash takes the pot. Cashouts stay hidden until the round
-          ends.
-        </p>
-      </div>
-    </div>
-  ) : null
-
   return (
     <div className="space-y-3">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            {locallyFlying ? (
-              <span className="flex items-center gap-1.5 rounded-full border border-[#00fa7f]/30 bg-[#00fa7f]/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.16em] text-[#00fa7f]">
-                <span className="dual-live-dot h-1.5 w-1.5 rounded-full bg-[#00fa7f]" />
-                Live
-              </span>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-        
-          <button
-            type="button"
-            onClick={toggleMuted}
-            aria-label={muted ? 'Unmute sounds' : 'Mute sounds'}
-            className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.03] text-white/65 transition hover:border-white/20 hover:text-white"
-          >
-            {muted ? (
-              <svg
-                viewBox="0 0 24 24"
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-              >
-                <path d="M4 9v6h4l5 4V5L8 9H4Z" strokeLinejoin="round" />
-                <path d="m17 9 4 6M21 9l-4 6" strokeLinecap="round" />
-              </svg>
-            ) : (
-              <svg
-                viewBox="0 0 24 24"
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-              >
-                <path d="M4 9v6h4l5 4V5L8 9H4Z" strokeLinejoin="round" />
-                <path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11" strokeLinecap="round" />
-              </svg>
-            )}
-          </button>
-        </div>
-      </header>
-
       {notice ? (
         <div
           role="status"
@@ -528,8 +424,7 @@ export function DualGame() {
         <div className="dual-card flex h-[320px] flex-col items-center justify-center gap-3 p-6 text-center">
           <p className="text-sm font-bold text-white">Could not load the game</p>
           <p className="max-w-sm text-[12px] leading-relaxed text-[var(--t-muted)]">
-            The server took too long to answer. Your match is still running on the server — retry
-            to reconnect.
+            Check your connection and retry.
           </p>
           <button
             type="button"
@@ -561,7 +456,7 @@ export function DualGame() {
           players={state?.match?.players.length ?? 1}
         />
       ) : match ? (
-        <section className="dual-card p-3 sm:p-4 ">
+        <section className="dual-card p-3 sm:p-4">
           <div className="flex flex-wrap items-center justify-between gap-2 px-1">
             <div className="flex items-center gap-2 text-[11px]">
               <span className="rounded-md border border-white/[0.08] bg-white/[0.03] px-2 py-0.5 font-semibold text-white/65">
@@ -574,24 +469,11 @@ export function DualGame() {
                 </span>
               ) : null}
             </div>
-            <p className="text-[11px] font-semibold text-white/55">
-              Pot {usd(match.potPusd)} · winner {usd(match.payoutPusd)}
-            </p>
+            <p className="text-[11px] font-semibold text-white/55">Pot {usd(match.potPusd)}</p>
           </div>
 
-          <div className="mt-2.5 grid gap-2.5 lg:grid-cols-[200px_minmax(0,1fr)_200px]">
-            <div className="order-2 grid grid-cols-2 gap-2.5 lg:order-1 lg:grid-cols-1">
-              {match.players.map((player) => (
-                <PlayerCard
-                  key={player.userId}
-                  player={player}
-                  status={match.status}
-                  winnerUserId={match.winnerUserId}
-                />
-              ))}
-            </div>
-
-            <div className="order-1 min-w-0 lg:order-2">
+          <div className="mt-2.5 grid gap-2.5 lg:grid-cols-[minmax(0,1fr)_210px]">
+            <div className="order-1 min-w-0">
               <div className="relative">
                 <CrashStage
                   status={match.status}
@@ -601,17 +483,14 @@ export function DualGame() {
                   countdownMsRemaining={match.countdownMsRemaining}
                   clockOffsetMs={clockOffsetMs}
                   round={match.round}
-                  outcome={outcome}
+                  historyKey={historyKey}
                 />
 
                 {match.status === 'WAITING' ? (
-                  <div className="absolute inset-0 z-30 flex flex-col items-center justify-center rounded-2xl bg-[#050914]/78 p-4 text-center backdrop-blur-sm">
+                  <div className="absolute inset-0 z-30 flex flex-col items-center justify-center rounded-xl bg-[#050914]/80 p-4 text-center backdrop-blur-sm">
                     <span className="dual-spinner h-7 w-7 rounded-full border-2 border-[#00fa7f]/25 border-t-[#00fa7f]" />
-                    <p className="mt-3 text-sm font-bold text-white">Waiting for both players</p>
-                    <p className="mt-1 max-w-xs text-[11px] text-[var(--t-muted)]">
-                      The round starts when both players are loaded. Stakes are already locked.
-                    </p>
-                    <div className="mt-3 flex items-center gap-3 text-[10px]">
+                    <p className="mt-3 text-sm font-bold text-white">Waiting for opponent</p>
+                    <div className="mt-2 flex items-center gap-3 text-[10px]">
                       {match.players.map((player) => (
                         <span
                           key={player.userId}
@@ -620,7 +499,7 @@ export function DualGame() {
                           <span
                             className={`h-1.5 w-1.5 rounded-full ${player.ready ? 'bg-[#00fa7f]' : 'bg-white/25'}`}
                           />
-                          {player.isSelf ? 'You' : 'Opponent'} {player.ready ? 'ready' : 'loading'}
+                          {player.isSelf ? 'You' : 'Opponent'}
                         </span>
                       ))}
                     </div>
@@ -639,24 +518,19 @@ export function DualGame() {
               </div>
 
               {match.status === 'INTERMISSION' ? (
-                <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#ffdf1a]/20 bg-[#ffdf1a]/[0.06] px-3 py-2.5">
-                  <div>
-                    <p className="text-[12px] font-bold text-[#ffdf1a]">
-                      Both players busted — replaying with the same stakes
-                    </p>
-                    <p className="mt-0.5 text-[10px] text-white/55">
-                      Next round in {secondsUntil(match.intermissionEndsAt, clockOffsetMs)}s. No
-                      fee is charged until a winner exists.
-                    </p>
-                  </div>
+                <div className="mt-2.5 flex items-center justify-between gap-2 rounded-xl border border-[#ffdf1a]/20 bg-[#ffdf1a]/[0.06] px-3 py-2">
+                  <p className="text-[12px] font-bold text-[#ffdf1a]">
+                    Both busted · replay in{' '}
+                    {secondsUntil(match.intermissionEndsAt, clockOffsetMs)}s
+                  </p>
                   {match.viewer.canCancel ? (
                     <button
                       type="button"
                       onClick={cancelMatch}
                       disabled={busy === 'cancel-match'}
-                      className="h-8 rounded-lg border border-white/[0.1] bg-white/[0.04] px-3 text-[10px] font-semibold text-white/65 transition hover:border-white/25 disabled:opacity-50"
+                      className="h-7 shrink-0 rounded-lg border border-white/[0.1] bg-white/[0.04] px-2.5 text-[10px] font-semibold text-white/65 transition hover:border-white/25 disabled:opacity-50"
                     >
-                      Stop replaying
+                      Stop
                     </button>
                   ) : null}
                 </div>
@@ -668,75 +542,41 @@ export function DualGame() {
                     type="button"
                     onClick={cashout}
                     disabled={!canPressCashOut}
-                    className={`dual-cashout flex h-14 w-full items-center justify-between rounded-xl px-5 transition ${
+                    className={`dual-cashout flex h-12 w-full items-center justify-center gap-3 rounded-xl px-4 text-[14px] font-black uppercase tracking-[0.1em] transition ${
                       canPressCashOut
                         ? 'bg-[var(--t-green)] text-[var(--t-green-ink)] shadow-[0_0_34px_rgba(0,250,127,0.24)] hover:brightness-110 active:scale-[0.995]'
                         : 'border border-white/[0.08] bg-white/[0.03] text-white/45'
                     }`}
                   >
-                    <span className="text-left">
-                      <span className="block text-[15px] font-black uppercase tracking-[0.1em]">
-                        {busy === 'cashout'
-                          ? 'Cashing out…'
-                          : cashoutLocked
-                            ? 'Cashed out'
-                            : 'Cash out'}
-                      </span>
-                      <span className="mt-0.5 block text-[10px] font-medium opacity-70">
-                        {cashoutLocked && shownCashoutX100 != null
-                          ? `Locked at ${formatMultiplier(shownCashoutX100)} — last cashout wins`
-                          : canPressCashOut
-                            ? `Last cashout takes ${usd(match.potPusd)}`
-                            : 'Waiting for the round'}
-                      </span>
+                    <span>
+                      {busy === 'cashout'
+                        ? 'Cashing out…'
+                        : cashoutLocked
+                          ? shownCashoutX100 != null
+                            ? `Cashed out at ${formatMultiplier(shownCashoutX100)}`
+                            : 'Cashed out'
+                          : 'Cash out'}
                     </span>
-                    <span className="flex items-center gap-2 text-right">
-                      {canPressCashOut ? (
-                        <span className="hidden text-[10px] font-semibold uppercase tracking-[0.12em] opacity-60 sm:block">
-                          Space
-                        </span>
-                      ) : null}
-                      <svg
-                        viewBox="0 0 24 24"
-                        className="h-5 w-5"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                      >
-                        <path
-                          d="M5 12h13M13 6l6 6-6 6"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                    </span>
+                    {canPressCashOut ? (
+                      <span className="hidden text-[10px] font-semibold tracking-[0.12em] opacity-60 sm:inline">
+                        Space
+                      </span>
+                    ) : null}
                   </button>
                 ) : match.status === 'COUNTDOWN' ? (
-                  <div className="flex h-14 items-center justify-between rounded-xl border border-white/[0.07] bg-white/[0.025] px-4">
-                    <div>
-                      <p className="text-[12px] font-bold text-white">Stakes locked</p>
-                      <p className="mt-0.5 text-[10px] text-[var(--t-muted)]">
-                        Both players are ready. The rocket launches automatically.
-                      </p>
-                    </div>
+                  <div className="flex h-12 items-center justify-between rounded-xl border border-white/[0.07] bg-white/[0.025] px-4">
+                    <span className="text-[12px] font-bold text-white">Launching</span>
                     <span className="rounded-lg border border-[#00fa7f]/20 bg-[#00fa7f]/10 px-2 py-1 text-[10px] font-bold text-[#00fa7f]">
-                      {Math.max(
-                        1,
-                        Math.ceil(((startsAtMs ?? localNowMs) - localNowMs) / 1_000),
-                      )}
-                      s
+                      {Math.max(1, Math.ceil(((startsAtMs ?? localNowMs) - localNowMs) / 1_000))}s
                     </span>
                   </div>
                 ) : match.status === 'SETTLED' ? (
-                  <div className="flex h-14 items-center justify-between rounded-xl border border-white/[0.07] bg-white/[0.025] px-4">
-                    <div>
-                      <p className="text-[12px] font-bold text-white">
-                        {match.winnerUserId === selfId ? 'You won the pot' : 'Round settled'}
-                      </p>
-                      <p className="mt-0.5 text-[10px] text-[var(--t-muted)]">
-                        Rematch requires both players to agree.
-                      </p>
-                    </div>
+                  <div className="flex h-12 items-center justify-between rounded-xl border border-white/[0.07] bg-white/[0.025] px-4">
+                    <span className="text-[12px] font-bold text-white">
+                      {match.winnerUserId === selfId
+                        ? `You won ${usd(match.payoutPusd)}`
+                        : 'Round settled'}
+                    </span>
                     <button
                       type="button"
                       onClick={rematch}
@@ -750,15 +590,15 @@ export function DualGame() {
               </div>
             </div>
 
-            <div className="order-3 hidden lg:block">{rightPanel}</div>
-          </div>
-
-          <div className="mt-2.5 lg:hidden">
-            <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-[11px]">
-              <span className="text-[var(--t-muted)]">Winner gets</span>
-              <span className="font-bold text-[#00fa7f]">{usd(match.payoutPusd)}</span>
-              <span className="text-[var(--t-muted)]">Fee</span>
-              <span className="text-white/70">{usd(match.feePusd)}</span>
+            <div className="order-2 grid grid-cols-2 gap-2.5 lg:grid-cols-1 lg:content-start">
+              {match.players.map((player) => (
+                <PlayerCard
+                  key={player.userId}
+                  player={player}
+                  status={match.status}
+                  winnerUserId={match.winnerUserId}
+                />
+              ))}
             </div>
           </div>
         </section>
@@ -786,13 +626,6 @@ export function DualGame() {
       ) : null}
 
       <HistoryPanel refreshKey={historyKey} />
-
-      {opponent ? (
-        <p className="px-1 text-center text-[10px] text-[var(--t-muted)]">
-          Opponent: <span className="text-white/55">{opponent.displayName}</span> · cashout timing
-          is hidden until the round ends.
-        </p>
-      ) : null}
     </div>
   )
 }

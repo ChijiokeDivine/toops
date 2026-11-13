@@ -1,13 +1,16 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { DUAL_GROWTH_RATE_PER_SECOND, DUAL_MAX_MULTIPLIER_X100 } from '@/lib/dual/config'
+import { useEffect, useRef, useState } from 'react'
+import {
+  DUAL_GROWTH_RATE_PER_SECOND,
+  DUAL_MAX_MULTIPLIER_X100,
+} from '@/lib/dual/config'
 import {
   elapsedMsForMultiplierX100,
   formatMultiplier,
   multiplierX100AtElapsed,
 } from '@/lib/dual/curve'
-import type { DualStatus } from '@/lib/dual/types'
+import type { DualHistoryItem, DualStatus } from '@/lib/dual/types'
 import { ChartRocket } from './chart-rocket'
 
 type CrashStageProps = {
@@ -23,23 +26,21 @@ type CrashStageProps = {
    */
   clockOffsetMs: number
   round: number
-  outcome: 'win' | 'lose' | 'neutral'
+  /** Changes whenever a round ends, so the recent-crash pills refresh. */
+  historyKey: string
 }
 
-const WIDTH = 800
-const HEIGHT = 340
-const MARGIN_X = 28
-const MARGIN_Y = 30
-const PLOT_W = WIDTH - MARGIN_X * 2
-const PLOT_H = HEIGHT - MARGIN_Y * 2
-const POINTS = 64
+const VIEW_W = 1000
+const VIEW_H = 600
+const SAMPLES = 80
+const MIN_WINDOW_MS = 30_000
 
-function seeded(seed: number) {
-  let state = Math.abs(Math.floor(seed)) % 2_147_483_647 || 1
-  return () => {
-    state = (state * 16_807) % 2_147_483_647
-    return state / 2_147_483_647
-  }
+function formatAxis(value: number): string {
+  return `${value.toFixed(1)}x`
+}
+
+function historyLabel(valueX100: number): string {
+  return formatMultiplier(valueX100).replace('x', '')
 }
 
 export function CrashStage({
@@ -50,10 +51,13 @@ export function CrashStage({
   countdownMsRemaining,
   clockOffsetMs,
   round,
-  outcome,
+  historyKey,
 }: CrashStageProps) {
   const [displayX100, setDisplayX100] = useState(100)
   const displayRef = useRef(100)
+  const [history, setHistory] = useState<number[]>([])
+  const appendedRoundRef = useRef<number | null>(null)
+
   const propsRef = useRef<CrashStageProps>({
     status,
     startsAt,
@@ -62,7 +66,7 @@ export function CrashStage({
     countdownMsRemaining,
     clockOffsetMs,
     round,
-    outcome,
+    historyKey,
   })
 
   useEffect(() => {
@@ -74,7 +78,7 @@ export function CrashStage({
       countdownMsRemaining,
       clockOffsetMs,
       round,
-      outcome,
+      historyKey,
     }
   }, [
     status,
@@ -84,9 +88,8 @@ export function CrashStage({
     countdownMsRemaining,
     clockOffsetMs,
     round,
-    outcome,
+    historyKey,
   ])
-
   // The replay that plays the missing flight when the first response for a
   // round already contains the crash result (a slow poll can skip RUNNING).
   const catchUpRef = useRef<{
@@ -177,22 +180,30 @@ export function CrashStage({
     return () => cancelAnimationFrame(raf.id)
   }, [])
 
-  const stars = useMemo(() => {
-    const random = seeded(round * 97 + 13)
-    return Array.from({ length: 38 }, (_, index) => ({
-      id: index,
-      x: MARGIN_X + random() * PLOT_W,
-      y: MARGIN_Y + random() * PLOT_H * 0.82,
-      r: 0.7 + random() * 1.6,
-      opacity: 0.18 + random() * 0.55,
-      delay: random() * 4,
-    }))
-  }, [round])
+  useEffect(() => {
+    const controller = new AbortController()
+    void (async () => {
+      try {
+        const response = await fetch('/api/dual/history?limit=7', {
+          cache: 'no-store',
+          signal: controller.signal,
+        })
+        if (!response.ok) return
+        const data = (await response.json()) as { matches?: DualHistoryItem[] }
+        const values = (data.matches ?? [])
+          .map((item) => item.crashMultiplierX100)
+          .filter((value): value is number => value != null)
+        setHistory(values.slice(0, 7))
+      } catch {
+        // Pills are decorative; a failed fetch leaves the previous list.
+      }
+    })()
+    return () => controller.abort()
+  }, [historyKey])
 
   const startsAtMs = startsAt ? new Date(startsAt).getTime() : null
   // Re-read the clock on every paint: the animation loop re-renders this
   // component every ~28ms, so the value is always fresh while the rocket flies.
-  // eslint-disable-next-line react/purity
   const nowMs = Date.now() + clockOffsetMs
   const locallyFlying =
     startsAtMs != null &&
@@ -203,196 +214,235 @@ export function CrashStage({
   const arrivedAtCrash = crashTargetX100 != null && displayX100 >= crashTargetX100 - 1
   const launchMsRemaining =
     startsAtMs != null ? Math.max(0, startsAtMs - nowMs) : (countdownMsRemaining ?? 0)
-  const maxMultiplier = Math.max(displayX100 / 100, 2)
-  const elapsed = elapsedMsForMultiplierX100(Math.max(displayX100, 100))
-  const effectiveElapsed = Math.max(elapsed, 1)
+
+  useEffect(() => {
+    if (!ended || crashTargetX100 == null || appendedRoundRef.current === round) return
+    appendedRoundRef.current = round
+    setHistory((previous) =>
+      previous[0] === crashTargetX100
+        ? previous
+        : [crashTargetX100, ...previous].slice(0, 7),
+    )
+  }, [ended, crashTargetX100, round])
+
+  const elapsed = Math.max(elapsedMsForMultiplierX100(displayX100), 1)
+  const crashElapsed = crashTargetX100
+    ? Math.max(elapsedMsForMultiplierX100(crashTargetX100), elapsed)
+    : elapsed
+  const windowMs =
+    Math.max(MIN_WINDOW_MS, Math.ceil(crashElapsed / 30_000) * 30_000) || MIN_WINDOW_MS
+  const peakX100 = Math.max(displayX100, crashTargetX100 ?? displayX100)
+  const axisMax = Math.max(2, Math.ceil((peakX100 / 100) * 1.15))
 
   let curve = ''
-  let lastX = MARGIN_X
-  let lastY = HEIGHT - MARGIN_Y
-  let prevX = MARGIN_X
-  let prevY = HEIGHT - MARGIN_Y
+  let lastX = 0
+  let lastY = VIEW_H
+  let prevX = 0
+  let prevY = VIEW_H
 
-  for (let index = 0; index <= POINTS; index++) {
+  for (let index = 0; index <= SAMPLES; index++) {
     prevX = lastX
     prevY = lastY
-    const progress = index / POINTS
-    const t = effectiveElapsed * progress
-    const multiplier = Math.exp(DUAL_GROWTH_RATE_PER_SECOND * (t / 1_000))
-    const x = MARGIN_X + PLOT_W * progress
-    const y =
-      HEIGHT - MARGIN_Y - Math.min(1, Math.max(0, (multiplier - 1) / (maxMultiplier - 1))) * PLOT_H
+    const timeMs = (elapsed * index) / SAMPLES
+    const multiplier = Math.exp(DUAL_GROWTH_RATE_PER_SECOND * (timeMs / 1_000))
+    const x = (timeMs / windowMs) * VIEW_W
+    const y = VIEW_H - Math.min(1, multiplier / axisMax) * VIEW_H
     curve += `${index === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)} `
     lastX = x
     lastY = y
   }
 
-  // Tangent at the tip, so the rocket nose follows the line it is riding.
+  // Tangent at the tip, so the rocket sits on the line instead of floating.
   const angleDeg = Math.min(
-    78,
-    Math.max(10, (Math.atan2(lastX - prevX, prevY - lastY) * 180) / Math.PI),
+    82,
+    Math.max(8, (Math.atan2(lastX - prevX, prevY - lastY) * 180) / Math.PI),
   )
 
-  const area = `${curve} L ${lastX.toFixed(1)} ${(HEIGHT - MARGIN_Y).toFixed(1)} L ${MARGIN_X} ${(HEIGHT - MARGIN_Y).toFixed(1)} Z`
+  const area = `${curve} L ${lastX.toFixed(1)} ${VIEW_H} L 0 ${VIEW_H} Z`
+  const accent = ended ? '#f63c45' : '#00fa7f'
 
-  const accent = outcome === 'win' ? '#ffdf1a' : ended ? '#ff5b6e' : '#00fa7f'
-  const gradientId = `dual-trail-${round}`
-  const areaId = `dual-area-${round}`
-  const glowId = `dual-glow-${round}`
-
-  const multiplierClass =
-    outcome === 'win'
-      ? 'text-[#ffdf1a]'
-      : ended
-        ? 'text-[#ff6b7c]'
-        : status === 'CANCELLED'
-          ? 'text-white/50'
-          : 'text-white'
-
-  const label = ended
-    ? 'CRASHED AT'
+  const statusLabel = ended
+    ? 'Crashed'
     : status === 'CANCELLED'
-      ? 'CANCELLED'
+      ? 'Cancelled'
       : locallyFlying
-        ? 'LIVE MULTIPLIER'
+        ? 'Live'
         : status === 'COUNTDOWN'
-          ? 'LAUNCHING'
-          : 'MULTIPLIER'
+          ? 'Launching'
+          : status === 'WAITING'
+            ? 'Waiting'
+            : 'Ready'
+
+  const axisTicks = [0.25, 0.5, 0.75].map((ratio) => axisMax * ratio)
+  const timeTicks = [1 / 3, 2 / 3, 1].map((ratio) =>
+    Math.round((windowMs * ratio) / 1_000),
+  )
 
   return (
-    <div className="dual-stage relative isolate overflow-hidden rounded-2xl border border-white/[0.06]">
-      <div className="dual-stage-glow" aria-hidden="true" />
-      <div className="dual-stage-stars" aria-hidden="true" />
+    <div className="relative isolate flex min-h-[420px] flex-col overflow-hidden rounded-xl border border-white/[0.06] bg-[#0c1116]">
+      {/* Status bar */}
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-3 bg-[#0f151b] px-4 py-4 sm:px-5">
+        <div className="flex items-center gap-2">
+          <span
+            className={`h-2.5 w-2.5 rounded-full ${
+              ended
+                ? 'bg-[#ff4d57] shadow-[0_0_10px_rgba(255,77,87,0.9)]'
+                : 'bg-[#00ff86] shadow-[0_0_10px_rgba(0,255,134,0.9)]'
+            }`}
+          />
+          <span className="text-[13px] font-semibold text-white">{statusLabel}</span>
+        </div>
 
-      <div className="pointer-events-none absolute inset-x-0 top-4 z-20 flex flex-col items-center">
-        <span className="text-[10px] font-semibold uppercase tracking-[0.28em] text-white/35">
-          {label}
-        </span>
-        <span
-          className={`dual-multiplier mt-1 text-[42px] font-black leading-none tabular-nums sm:text-[58px] ${multiplierClass} ${
-            status === 'RUNNING' ? 'dual-multiplier-live' : ''
-          }`}
-        >
-          {formatMultiplier(displayX100)}
-        </span>
-        {locallyFlying && !ended ? (
-          <span className="mt-2 rounded-full border border-[#00fa7f]/30 bg-[#00fa7f]/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#00fa7f]">
-            Rocket in flight
-          </span>
-        ) : null}
-        {status === 'INTERMISSION' ? (
-          <span className="mt-2 rounded-full border border-[#ffdf1a]/30 bg-[#ffdf1a]/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#ffdf1a]">
-            Both busted · replaying
-          </span>
-        ) : null}
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          {(history.length > 0 ? history : [0]).map((value, index) => {
+            const hot = value >= 200
+            return (
+              <span
+                key={`${value}-${index}`}
+                className={`flex h-[30px] min-w-[60px] items-center justify-center rounded-full px-3 text-[14px] font-bold tabular-nums ${
+                  value === 0
+                    ? 'bg-[#252f3a] text-[#6f7a87]'
+                    : hot
+                      ? 'bg-[#00ff86] text-[#03170d]'
+                      : 'bg-[#252f3a] text-[#e6e9ed]'
+                }`}
+              >
+                {value === 0 ? '—' : historyLabel(value)}
+              </span>
+            )
+          })}
+        </div>
       </div>
 
-      <div className="relative z-10">
+      {/* Chart */}
+      <div className="relative flex-1 select-none">
         <svg
-          viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-          className="block h-[300px] w-full sm:h-[340px]"
-          role="img"
-          aria-label={`Rocket multiplier chart at ${formatMultiplier(displayX100)}`}
+          viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
           preserveAspectRatio="none"
+          className="absolute inset-0 h-full w-full"
+          role="img"
+          aria-label={`Rocket multiplier at ${formatMultiplier(displayX100)}`}
         >
           <defs>
-            <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor="#0fd486" stopOpacity="0.25" />
-              <stop offset="55%" stopColor={accent} stopOpacity="0.95" />
-              <stop offset="100%" stopColor={accent} />
-            </linearGradient>
-            <linearGradient id={areaId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={accent} stopOpacity="0.24" />
+            <linearGradient id="crash-live-area" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={accent} stopOpacity="0.18" />
               <stop offset="100%" stopColor={accent} stopOpacity="0" />
             </linearGradient>
-            <filter id={glowId} x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur stdDeviation="5" result="blur" />
-              <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
           </defs>
 
-          {[0.25, 0.5, 0.75].map((ratio) => (
+          {axisTicks.map((value) => {
+            const y = VIEW_H - (value / axisMax) * VIEW_H
+            return (
+              <line
+                key={`h-${value}`}
+                x1={0}
+                x2={VIEW_W}
+                y1={y}
+                y2={y}
+                stroke="rgba(255,255,255,0.07)"
+                strokeDasharray="5 9"
+                vectorEffect="non-scaling-stroke"
+              />
+            )
+          })}
+          {[1 / 3, 2 / 3].map((ratio) => (
             <line
-              key={ratio}
-              x1={MARGIN_X}
-              x2={WIDTH - MARGIN_X}
-              y1={MARGIN_Y + PLOT_H * ratio}
-              y2={MARGIN_Y + PLOT_H * ratio}
-              stroke="rgba(255,255,255,0.055)"
-              strokeDasharray="4 8"
-            />
-          ))}
-          {[0.2, 0.4, 0.6, 0.8].map((ratio) => (
-            <line
-              key={ratio}
-              x1={MARGIN_X + PLOT_W * ratio}
-              x2={MARGIN_X + PLOT_W * ratio}
-              y1={MARGIN_Y}
-              y2={HEIGHT - MARGIN_Y}
+              key={`v-${ratio}`}
+              x1={ratio * VIEW_W}
+              x2={ratio * VIEW_W}
+              y1={0}
+              y2={VIEW_H}
               stroke="rgba(255,255,255,0.035)"
+              vectorEffect="non-scaling-stroke"
             />
           ))}
           <line
-            x1={MARGIN_X}
-            x2={WIDTH - MARGIN_X}
-            y1={HEIGHT - MARGIN_Y}
-            y2={HEIGHT - MARGIN_Y}
-            stroke="rgba(255,255,255,0.12)"
+            x1={0}
+            x2={VIEW_W}
+            y1={VIEW_H}
+            y2={VIEW_H}
+            stroke="rgba(255,255,255,0.1)"
+            vectorEffect="non-scaling-stroke"
           />
 
-          {stars.map((star) => (
-            <circle
-              key={star.id}
-              cx={star.x}
-              cy={star.y}
-              r={star.r}
-              fill="white"
-              opacity={star.opacity}
-              className="dual-star"
-              style={{ animationDelay: `${star.delay}s` }}
-            />
-          ))}
-
-          <path d={area} fill={`url(#${areaId})`} />
+          <path d={area} fill="url(#crash-live-area)" />
           <path
             d={curve}
             fill="none"
-            stroke={`url(#${gradientId})`}
-            strokeWidth="3.5"
+            stroke={accent}
+            strokeWidth={3}
             strokeLinecap="round"
             strokeLinejoin="round"
-            filter={ended ? undefined : `url(#${glowId})`}
-            className="dual-trail"
+            vectorEffect="non-scaling-stroke"
+            style={{
+              filter: `drop-shadow(0 0 6px ${ended ? 'rgba(246,60,69,0.45)' : 'rgba(0,250,127,0.45)'})`,
+            }}
           />
-
-          {ended && arrivedAtCrash ? (
-            <g
-              key={`${round}-${status}`}
-              transform={`translate(${lastX.toFixed(1)} ${lastY.toFixed(1)})`}
-            >
-              <g className="dual-burst">
-                <circle r="18" fill="none" stroke="#ff6b7c" strokeWidth="2" opacity="0.8" />
-                <circle r="34" fill="none" stroke="#ff8a00" strokeWidth="1.5" opacity="0.5" />
-                <circle r="52" fill="none" stroke="#ffdf1a" strokeWidth="1" opacity="0.3" />
-                <circle r="7" fill="#ff6b7c" />
-              </g>
-            </g>
-          ) : null}
         </svg>
 
         <ChartRocket
-          leftPct={(lastX / WIDTH) * 100}
-          topPct={(lastY / HEIGHT) * 100}
+          leftPct={(lastX / VIEW_W) * 100}
+          topPct={(lastY / VIEW_H) * 100}
           angleDeg={angleDeg}
           crashed={ended && arrivedAtCrash}
         />
+
+        {/* Y axis */}
+        <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+          {axisTicks.map((value) => {
+            const top = (1 - value / axisMax) * 100
+            return (
+              <div
+                key={`y-${value}`}
+                className="absolute left-3 flex -translate-y-1/2 items-center gap-2"
+                style={{ top: `${top}%` }}
+              >
+                <span className="h-px w-3 bg-white/25" />
+                <span className="text-[11px] font-bold text-[#cfd4da]">{formatAxis(value)}</span>
+              </div>
+            )
+          })}
+          {Array.from({ length: 13 }, (_, index) => (
+            <span
+              key={index}
+              className="absolute left-1 h-px w-2 bg-white/15"
+              style={{ top: `${(1 - (index + 1) / 14) * 100}%` }}
+            />
+          ))}
+        </div>
+
+        {/* X axis */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-2" aria-hidden="true">
+          {timeTicks.map((seconds, index) => (
+            <span
+              key={seconds}
+              className={`absolute text-[11px] font-semibold text-white/45 ${
+                index === 2 ? 'right-2' : '-translate-x-1/2'
+              }`}
+              style={index === 2 ? undefined : { left: `${((index + 1) / 3) * 100}%` }}
+            >
+              {seconds}s
+            </span>
+          ))}
+        </div>
+
+        {/* Center readout */}
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center pb-10 text-center">
+          {ended ? (
+            <span className="text-[22px] font-semibold text-white sm:text-[26px]">Crashed</span>
+          ) : null}
+          <span
+            className={`font-bold leading-none tabular-nums tracking-tight ${
+              ended ? 'mt-1 text-[56px] text-[#ff3d47] sm:text-[68px]' : 'text-[46px] text-white'
+            }`}
+          >
+            {formatMultiplier(displayX100)}
+          </span>
+        </div>
       </div>
 
       {status === 'COUNTDOWN' && !locallyFlying ? (
-        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-[#050914]/55 backdrop-blur-[2px]">
+        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-[#050914]/60 backdrop-blur-[2px]">
           <span className="text-[11px] font-semibold uppercase tracking-[0.3em] text-white/45">
             Launching in
           </span>
@@ -402,17 +452,7 @@ export function CrashStage({
           >
             {Math.max(1, Math.ceil(launchMsRemaining / 1_000))}
           </span>
-          <span className="mt-2 text-xs font-medium text-[#00fa7f]/80">
-            Stakes are locked · get ready
-          </span>
         </div>
-      ) : null}
-
-      {ended && arrivedAtCrash ? (
-        <div
-          className="dual-crash-flash pointer-events-none absolute inset-0 z-20"
-          aria-hidden="true"
-        />
       ) : null}
     </div>
   )

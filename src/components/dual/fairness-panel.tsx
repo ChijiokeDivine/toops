@@ -157,10 +157,7 @@ export function FairnessPanel({ clientSeed, match, busy, onRegenerate }: Fairnes
               </div>
             </div>
           ) : (
-            <p className="mt-2 text-[11px] leading-relaxed text-[var(--t-muted)]">
-              Join a match to see its published seed hash here. After the round, the seed and both
-              client seeds are revealed so anyone can recompute the crash point.
-            </p>
+            <p className="mt-2 text-[11px] text-[var(--t-muted)]">Seeds reveal after launch.</p>
           )}
 
           {error ? <p className="mt-1.5 text-[10px] text-[#ff8a9a]">{error}</p> : null}

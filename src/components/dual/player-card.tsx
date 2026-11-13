@@ -11,21 +11,21 @@ type PlayerCardProps = {
 }
 
 function statusText(player: DualPlayerView, status: DualStatus, isWinner: boolean): string {
-  if (status === 'CANCELLED') return 'Stake refunded'
+  if (status === 'CANCELLED') return 'Refunded'
   if (status === 'SETTLED') {
     if (isWinner) {
-      return `Winner · ${usd(player.payoutPusd)}`
+      return `Won ${usd(player.payoutPusd)}`
     }
-    return player.cashedOut ? 'Cashed out too early' : 'Busted'
+    return player.cashedOut ? 'Cashed out' : 'Busted'
   }
   if (status === 'INTERMISSION') return 'Busted'
   if (status === 'RUNNING') {
     if (player.cashedOut && player.cashoutMultiplierX100 != null) {
-      return `Cashed out at ${formatMultiplier(player.cashoutMultiplierX100)}`
+      return `Cashed at ${formatMultiplier(player.cashoutMultiplierX100)}`
     }
-    return 'In play'
+    return 'Flying'
   }
-  if (status === 'COUNTDOWN') return 'Ready for launch'
+  if (status === 'COUNTDOWN') return 'Ready'
   if (status === 'WAITING') return player.ready ? 'Ready' : 'Loading…'
   return 'Waiting'
 }
@@ -80,7 +80,7 @@ export function PlayerCard({ player, status, winnerUserId }: PlayerCardProps) {
               </span>
             ) : null}
           </div>
-          <p className="mt-0.5 text-[11px] text-[var(--t-muted)]">{usd(player.stakePusd)} stake</p>
+          <p className="mt-0.5 text-[11px] text-[var(--t-muted)]">{usd(player.stakePusd)}</p>
         </div>
 
         {player.rematchRequested && status === 'SETTLED' ? (
