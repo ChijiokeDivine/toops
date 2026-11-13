@@ -204,6 +204,7 @@ export function CrashStage({
   const startsAtMs = startsAt ? new Date(startsAt).getTime() : null
   // Re-read the clock on every paint: the animation loop re-renders this
   // component every ~28ms, so the value is always fresh while the rocket flies.
+  // oxlint-disable-next-line react/purity
   const nowMs = Date.now() + clockOffsetMs
   const locallyFlying =
     startsAtMs != null &&

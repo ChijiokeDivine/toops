@@ -2,7 +2,6 @@ import Link from 'next/link'
 import { AuthTrigger } from '@/components/auth/auth-trigger'
 import { WalletIcon, TelegramIcon } from './icons'
 import { LogoMark } from './logo'
-import { TotalBets } from './total-bets'
 import Image from 'next/image'
 
 const SOCIALS = [

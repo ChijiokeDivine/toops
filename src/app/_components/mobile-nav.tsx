@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import type { ComponentType, SVGProps } from 'react'
-import { CasinoIcon, ChatIcon, GiftIcon, MenuIcon, SearchIcon, SportsIcon } from './icons'
+import { CasinoIcon, ChatIcon, SearchIcon, SportsIcon } from './icons'
 
 type Item = {
   label: string
