@@ -90,18 +90,8 @@ export function ResultOverlay({
           </div>
         ) : (
           <>
-            <div
-              className={`relative overflow-hidden px-5 pb-4 pt-5 text-center ${
-                won
-                  ? ''
-                  : ''
-              }`}
-            >
-              <span
-                className={`absolute inset-x-0 top-0 h-[2px] ${
-                  won ? '' : ''
-                }`}
-              />
+            <div className={`relative overflow-hidden px-5 pb-4 pt-5 text-center ${won ? '' : ''}`}>
+              <span className={`absolute inset-x-0 top-0 h-[2px] ${won ? '' : ''}`} />
               <p className="text-[10px] font-semibold uppercase tracking-[0.26em] text-white/45">
                 Round {match.round}
                 {match.replayCount > 0
@@ -133,9 +123,7 @@ export function ResultOverlay({
                 </p>
               </div>
               <div className="bg-[#0c1320] px-2 py-2.5">
-                <p className="text-[9px] uppercase tracking-[0.14em] text-[var(--t-muted)]">
-                  Fee
-                </p>
+                <p className="text-[9px] uppercase tracking-[0.14em] text-[var(--t-muted)]">Fee</p>
                 <p className="mt-0.5 text-[12px] font-bold tabular-nums text-white">
                   {usd(match.feePusd)}
                 </p>
@@ -241,7 +229,6 @@ export function ResultOverlay({
                   >
                     Report issue
                   </button>
-                
                 </div>
               </div>
 

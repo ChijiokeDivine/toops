@@ -102,7 +102,6 @@ export function FairnessPanel({ clientSeed, match, busy, onRegenerate }: Fairnes
               New
             </button>
           </div>
-        
         </div>
 
         <div className="rounded-xl border border-white/[0.06] bg-[#070b13]/60 p-3">

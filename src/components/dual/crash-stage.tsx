@@ -1,10 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import {
-  DUAL_GROWTH_RATE_PER_SECOND,
-  DUAL_MAX_MULTIPLIER_X100,
-} from '@/lib/dual/config'
+import { DUAL_GROWTH_RATE_PER_SECOND, DUAL_MAX_MULTIPLIER_X100 } from '@/lib/dual/config'
 import {
   elapsedMsForMultiplierX100,
   formatMultiplier,
@@ -120,10 +117,7 @@ export function CrashStage({
 
       if (flying) {
         catchUpRef.current = null
-        next = Math.min(
-          multiplierX100AtElapsed(now - startsAtMs!),
-          DUAL_MAX_MULTIPLIER_X100,
-        )
+        next = Math.min(multiplierX100AtElapsed(now - startsAtMs!), DUAL_MAX_MULTIPLIER_X100)
       } else if (crashed) {
         const target = props.crashMultiplierX100 ?? props.currentMultiplierX100
         const key = `${props.round}:${props.status}`
@@ -207,9 +201,7 @@ export function CrashStage({
   // oxlint-disable-next-line react/purity
   const nowMs = Date.now() + clockOffsetMs
   const locallyFlying =
-    startsAtMs != null &&
-    nowMs >= startsAtMs &&
-    (status === 'RUNNING' || status === 'COUNTDOWN')
+    startsAtMs != null && nowMs >= startsAtMs && (status === 'RUNNING' || status === 'COUNTDOWN')
   const ended = status === 'SETTLED' || status === 'INTERMISSION'
   const crashTargetX100 = ended ? (crashMultiplierX100 ?? currentMultiplierX100) : null
   const arrivedAtCrash = crashTargetX100 != null && displayX100 >= crashTargetX100 - 1
@@ -220,9 +212,7 @@ export function CrashStage({
     if (!ended || crashTargetX100 == null || appendedRoundRef.current === round) return
     appendedRoundRef.current = round
     setHistory((previous) =>
-      previous[0] === crashTargetX100
-        ? previous
-        : [crashTargetX100, ...previous].slice(0, 7),
+      previous[0] === crashTargetX100 ? previous : [crashTargetX100, ...previous].slice(0, 7),
     )
   }, [ended, crashTargetX100, round])
 
@@ -275,12 +265,10 @@ export function CrashStage({
             : 'Ready'
 
   const axisTicks = [0.25, 0.5, 0.75].map((ratio) => axisMax * ratio)
-  const timeTicks = [1 / 3, 2 / 3, 1].map((ratio) =>
-    Math.round((windowMs * ratio) / 1_000),
-  )
+  const timeTicks = [1 / 3, 2 / 3, 1].map((ratio) => Math.round((windowMs * ratio) / 1_000))
 
   return (
-    <div className="relative isolate flex min-h-[420px] flex-col overflow-hidden rounded-xl border border-white/[0.06] bg-[#0c1116]">
+    <div className="relative isolate flex min-h-[420px] flex-col overflow-hidden rounded-xl border border-white/[0.06] bg-[#0c1116] lg:min-h-[500px]">
       {/* Status bar */}
       <div className="flex flex-wrap items-center gap-x-6 gap-y-3 bg-[#0f151b] px-4 py-4 sm:px-5">
         <div className="flex items-center gap-2">

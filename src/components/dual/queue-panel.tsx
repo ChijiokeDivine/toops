@@ -48,8 +48,6 @@ export function QueuePanel({ stakePusd, expiresAt, onCancel, busy }: QueuePanelP
         >
           {busy ? 'Cancelling…' : 'Cancel & refund'}
         </button>
-
-
       </div>
     </section>
   )

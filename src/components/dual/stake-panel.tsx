@@ -17,8 +17,6 @@ type StakePanelProps = {
   players?: number
 }
 
-
-
 function withSeparators(value: string): string {
   const [whole = '0', fraction] = value.split('.')
   const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
@@ -51,9 +49,6 @@ export function StakePanel({
   // Winner takes the doubled pot minus the 1% platform fee; profit is the payout
   // minus the stake that was locked.
   const profitPusd = stakePusd > 0n ? stakePusd - (stakePusd * 2n) / 100n : 0n
-
-
-
 
   let validation: string | null = null
   if (signedIn) {
@@ -122,8 +117,6 @@ export function StakePanel({
             </div>
           </div>
 
-        
-
           <div className="mt-4">
             <p className="text-[13px] font-medium text-[#8b97a5]">Profit</p>
             <div className="mt-2 flex h-11 items-center gap-2 rounded-xl border-2 border-[#252f3a] px-2.5">
@@ -131,7 +124,6 @@ export function StakePanel({
               <span className="min-w-0 flex-1 truncate text-[16px] font-semibold tabular-nums text-white/65">
                 {withSeparators(formatPusdUnits(profitPusd))}
               </span>
-              
             </div>
           </div>
 

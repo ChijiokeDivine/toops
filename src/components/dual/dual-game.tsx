@@ -1,7 +1,12 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { DUAL_DEFAULT_STAKE_PUSD, DUAL_HEARTBEAT_MS, DUAL_POLL_IDLE_MS, DUAL_POLL_RUNNING_MS } from '@/lib/dual/config'
+import {
+  DUAL_DEFAULT_STAKE_PUSD,
+  DUAL_HEARTBEAT_MS,
+  DUAL_POLL_IDLE_MS,
+  DUAL_POLL_RUNNING_MS,
+} from '@/lib/dual/config'
 import { formatMultiplier } from '@/lib/dual/curve'
 import type { DualStateResponse, DualStatus } from '@/lib/dual/types'
 import { formatPusdUnits } from '@/lib/pusd'
@@ -520,8 +525,7 @@ export function DualGame() {
               {match.status === 'INTERMISSION' ? (
                 <div className="mt-2.5 flex items-center justify-between gap-2 rounded-xl border border-[#ffdf1a]/20 bg-[#ffdf1a]/[0.06] px-3 py-2">
                   <p className="text-[12px] font-bold text-[#ffdf1a]">
-                    Both busted · replay in{' '}
-                    {secondsUntil(match.intermissionEndsAt, clockOffsetMs)}s
+                    Both busted · replay in {secondsUntil(match.intermissionEndsAt, clockOffsetMs)}s
                   </p>
                   {match.viewer.canCancel ? (
                     <button
