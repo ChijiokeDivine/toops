@@ -187,13 +187,18 @@ export function CrashStage({
         const values = (data.matches ?? [])
           .map((item) => item.crashMultiplierX100)
           .filter((value): value is number => value != null)
-        setHistory(values.slice(0, 7))
+        if (crashMultiplierX100 != null) {
+          const rest = values.filter((value) => value !== crashMultiplierX100)
+          setHistory([crashMultiplierX100, ...rest].slice(0, 7))
+        } else {
+          setHistory(values.slice(0, 7))
+        }
       } catch {
         // Pills are decorative; a failed fetch leaves the previous list.
       }
     })()
     return () => controller.abort()
-  }, [historyKey])
+  }, [historyKey, crashMultiplierX100])
 
   const startsAtMs = startsAt ? new Date(startsAt).getTime() : null
   // Re-read the clock on every paint: the animation loop re-renders this
@@ -223,7 +228,7 @@ export function CrashStage({
   const windowMs =
     Math.max(MIN_WINDOW_MS, Math.ceil(crashElapsed / 30_000) * 30_000) || MIN_WINDOW_MS
   const peakX100 = Math.max(displayX100, crashTargetX100 ?? displayX100)
-  const axisMax = Math.max(2, Math.ceil((peakX100 / 100) * 1.15))
+  const axisMax = Math.max(8, Math.ceil((peakX100 / 100) * 1.15))
 
   let curve = ''
   let lastX = 0

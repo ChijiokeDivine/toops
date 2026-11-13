@@ -59,14 +59,13 @@ export function SettingsDialog() {
 
         <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-[var(--t-border)] bg-[var(--t-bg)]/60 px-3 py-3">
           <div>
-            <p className="text-sm font-semibold text-white">Sound effects</p>
-            <p className="text-xs text-[var(--t-muted)]">Game sounds</p>
+            <p className="text-sm font-semibold text-white">Sound</p>
           </div>
           <button
             type="button"
             role="switch"
             aria-checked={!muted}
-            aria-label="Sound effects"
+            aria-label="Sound"
             onClick={toggle}
             className={`relative h-6 w-11 shrink-0 cursor-pointer rounded-full transition ${
               muted ? 'bg-[var(--t-surface-3)]' : 'bg-[var(--t-green)]'
